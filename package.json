@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node src/index.ts",
+    "build": "tsc --build",
     "start": "node ./dist/index.js",
     "dev-nodemon": "nodemon ./src/index.ts"
   },
@@ -23,12 +24,16 @@
     "typescript": "^5.5.3"
   },
   "dependencies": {
+    "@types/ejs": "^3.1.5",
+    "@types/nodemailer": "^6.4.15",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^6.9.14",
     "pg": "^8.12.0"
   }
 }

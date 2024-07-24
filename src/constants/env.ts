@@ -25,6 +25,7 @@ const getEnv = (
 export const PORT = getEnv('PORT', undefined, 'number') as number;
 
 export const FRONTEND_URL = getEnv('FRONTEND_URL') as string;
+export const JWT_SECRET = getEnv('JWT_SECRET') as string;
 export const POSTGRES_USER = getEnv('POSTGRES_USER') as string;
 export const POSTGRES_HOST = getEnv('POSTGRES_HOST') as string;
 export const POSTGRES_DATABASE = getEnv('POSTGRES_DATABASE') as string;

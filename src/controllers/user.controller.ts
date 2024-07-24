@@ -3,7 +3,12 @@ import {
   validateField,
   validatePassword,
 } from '../middlewares/validation';
-import { createAccount } from '../services/user.service';
+import {
+  registerUserService,
+  verifyEmailService,
+  loginUserService,
+  resendEmailVerificationLinkService,
+} from '../services/user.service';
 
 import catchErrors from '../utils/tryCatch';
 
@@ -29,7 +34,11 @@ export const registerUser = catchErrors(async (req, res) => {
   const firstName = validateField(first_name, 'first name');
   const lastName = validateField(last_name, 'last name');
   const emailValue = validateEmail(email);
-  const passwordValue = validatePassword(password, confirm_password);
+  const passwordValue = validatePassword(
+    password,
+    confirm_password,
+    'registration'
+  );
 
   // call a service
   const payload = {
@@ -39,8 +48,8 @@ export const registerUser = catchErrors(async (req, res) => {
     phone_number,
     password: passwordValue,
   };
-  const user = await createAccount(payload);
-  console.log(user);
+  const user = await registerUserService(payload);
+
   // return response
   return res.status(201).json({
     message:
@@ -49,3 +58,67 @@ export const registerUser = catchErrors(async (req, res) => {
     status: 201,
   });
 });
+
+export const verifyUserEmail = catchErrors(async (req, res) => {
+  // get the params
+  const { userId, token } = req.params;
+
+  const user_id = parseInt(userId);
+
+  // call a service
+  const isVerified = await verifyEmailService(userId, token);
+
+  // return the response
+  return res.status(200).json({
+    message: `${isVerified.first_name}, your email has been verified successfully. Please login to continue.`,
+    success: true,
+    status: 200,
+  });
+});
+
+export const loginUser = catchErrors(async (req, res) => {
+  // get the details from the req.body and validate it
+  const { email, password } = req.body;
+  const emailValue = validateEmail(email);
+  const passwordValue = validatePassword(password, undefined, 'login');
+
+  const payload = {
+    email: emailValue,
+    password: passwordValue,
+  };
+
+  //  call a service
+  const { access_token, ...others } = await loginUserService(payload);
+
+  // return the response
+  return res
+    .cookie('access_token', access_token, {
+      httpOnly: true,
+      maxAge: 15 * 24 * 60 * 60 * 1000,
+    })
+    .status(200)
+    .json({
+      user: others,
+      message: `${others.first_name}, your login was successful`,
+      succeess: true,
+      status: 200,
+    });
+});
+
+export const resendEmailVerificationLink = catchErrors(async (req, res) => {
+  const { email } = req.body;
+  const checkEmail = validateEmail(email);
+
+  // call a service
+  const newEmail = await resendEmailVerificationLinkService(email);
+
+  // return response
+  return res.status(200).json({
+    message: 'Please check your email to verify your account',
+    success: true,
+    status: 200,
+  });
+});
+export const forgotPassword = catchErrors(async (req, res) => {});
+
+export const resetPassword = catchErrors(async (req, res) => {});

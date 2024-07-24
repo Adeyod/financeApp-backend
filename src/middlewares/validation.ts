@@ -26,21 +26,39 @@ const validateEmail = (field: string): string => {
   return value;
 };
 
-const validatePassword = (field: string, compare: string): string => {
+const validatePassword = (
+  field: string,
+  compare?: string,
+  purpose: 'registration' | 'login' = 'registration'
+): string => {
   const trimmedField = field.trim();
-  const trimmedCompare = compare.trim();
-  if (!trimmedField || !trimmedCompare) {
-    throw new Error('Password and confirm password fields are required');
-  }
 
-  if (!passwordRegex.test(trimmedField)) {
-    throw new Error(
-      'Password must contain at least 1 special character, 1 lowercase letter, and 1 uppercase letter. Also it must be minimum of 8 characters and maximum of 20 characters'
-    );
-  }
+  if (purpose === 'registration') {
+    const trimmedCompare = compare?.trim();
+    if (!trimmedField || !trimmedCompare) {
+      throw new Error('Password and confirm password fields are required');
+    }
 
-  if (trimmedCompare !== trimmedField) {
-    throw new Error('Password and confirm password must be the same');
+    if (!passwordRegex.test(trimmedField)) {
+      throw new Error(
+        'Password must contain at least 1 special character, 1 lowercase letter, and 1 uppercase letter. Also it must be minimum of 8 characters and maximum of 20 characters'
+      );
+    }
+
+    if (trimmedCompare !== trimmedField) {
+      throw new Error('Password and confirm password must be the same');
+    }
+  } else if (purpose === 'login') {
+    if (!trimmedField) {
+      throw new Error('Password field is required');
+    }
+    if (!passwordRegex.test(trimmedField)) {
+      throw new Error(
+        'Password must contain at least 1 special character, 1 lowercase letter, and 1 uppercase letter. Also it must be minimum of 8 characters and maximum of 20 characters'
+      );
+    }
+  } else {
+    throw new Error('Invalid validation purpose');
   }
 
   return trimmedField;

@@ -1,6 +1,5 @@
-const TokenExpiresInFifteenMinutes = () => {
-  return new Date(Date.now() + 15 * 60 * 1000);
-  // .toISOString();
+const TokenExpiration = (num: number) => {
+  return new Date(Date.now() + num * 60 * 1000);
 };
 
-export { TokenExpiresInFifteenMinutes };
+export { TokenExpiration };

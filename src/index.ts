@@ -5,6 +5,7 @@ import 'dotenv/config';
 
 import { FRONTEND_URL, PORT } from './constants/env';
 import { errorHandler } from './middlewares/errorHandler';
+import userRoutes from './routes/user.route';
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use(
 );
 app.use(cookieParser());
 
+app.use('/api/users', userRoutes);
 app.use(errorHandler);
 
 app.listen(PORT, () => {

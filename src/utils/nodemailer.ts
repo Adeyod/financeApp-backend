@@ -57,4 +57,20 @@ const sendEmailVerification = async ({
   return info;
 };
 
-export { sendEmailVerification };
+const sendPasswordReset = async ({ first_name, email, link }: EmailType) => {
+  const passwordResetContent = getMailTemplate('resetPasswordTemplate.ejs', {
+    first_name,
+    link,
+  });
+
+  const info = await transporter.sendMail({
+    from: NODEMAILER_USER,
+    to: email,
+    subject: 'Password reset',
+    html: passwordResetContent,
+  });
+
+  return info;
+};
+
+export { sendEmailVerification, sendPasswordReset };

@@ -1,4 +1,9 @@
 import {
+  comparePassType,
+  PayloadForLoginInput,
+  User,
+} from '../constants/types';
+import {
   validateEmail,
   validateField,
   validatePassword,
@@ -8,18 +13,11 @@ import {
   verifyEmailService,
   loginUserService,
   resendEmailVerificationLinkService,
+  forgotPasswordService,
+  resetPasswordService,
 } from '../services/user.service';
 
 import catchErrors from '../utils/tryCatch';
-
-type User = {
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone_number: string;
-  password: string;
-  confirm_password: string;
-};
 
 export const registerUser = catchErrors(async (req, res) => {
   const {
@@ -63,7 +61,7 @@ export const verifyUserEmail = catchErrors(async (req, res) => {
   // get the params
   const { userId, token } = req.params;
 
-  const user_id = parseInt(userId);
+  // const user_id = parseInt(userId);
 
   // call a service
   const isVerified = await verifyEmailService(userId, token);
@@ -78,7 +76,7 @@ export const verifyUserEmail = catchErrors(async (req, res) => {
 
 export const loginUser = catchErrors(async (req, res) => {
   // get the details from the req.body and validate it
-  const { email, password } = req.body;
+  const { email, password }: PayloadForLoginInput = req.body;
   const emailValue = validateEmail(email);
   const passwordValue = validatePassword(password, undefined, 'login');
 
@@ -100,7 +98,7 @@ export const loginUser = catchErrors(async (req, res) => {
     .json({
       user: others,
       message: `${others.first_name}, your login was successful`,
-      succeess: true,
+      success: true,
       status: 200,
     });
 });
@@ -119,6 +117,48 @@ export const resendEmailVerificationLink = catchErrors(async (req, res) => {
     status: 200,
   });
 });
-export const forgotPassword = catchErrors(async (req, res) => {});
 
-export const resetPassword = catchErrors(async (req, res) => {});
+export const forgotPassword = catchErrors(async (req, res) => {
+  // get email and validate it
+  const { email } = req.body;
+
+  const emailValue = validateEmail(email);
+
+  // call a service
+  const forgotPasswordResult = await forgotPasswordService(emailValue);
+
+  // return response
+  return res.status(200).json({
+    success: true,
+    message: 'Please check your email for the password reset link',
+    status: 200,
+  });
+});
+
+export const resetPassword = catchErrors(async (req, res) => {
+  // get user id, and token from params
+  const { userId, token } = req.params;
+  // get new password and confirm password from body
+  const { password, confirm_password }: comparePassType = req.body;
+  const validatedResult = await validatePassword(
+    password,
+    confirm_password,
+    'registration'
+  );
+
+  const payload = {
+    user_id: userId,
+    token: token,
+    password: validatedResult,
+  };
+
+  // call a service
+  const resetPasswordResponse = await resetPasswordService(payload);
+
+  // return response
+  return res.status(200).json({
+    message: resetPasswordResponse,
+    success: true,
+    status: 200,
+  });
+});

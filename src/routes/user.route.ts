@@ -14,7 +14,7 @@ router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/resend-email-verification', resendEmailVerificationLink);
 router.post('/forgot-password', forgotPassword);
-router.post('/reset-password', resetPassword);
+router.post('/reset-password/:userId/:token', resetPassword);
 router.get('/email-verification/:userId/:token', verifyUserEmail);
 
 export default router;

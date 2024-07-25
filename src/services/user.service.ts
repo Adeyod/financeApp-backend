@@ -1,18 +1,21 @@
 import bcrypt from 'bcryptjs';
+import { QueryResult } from 'pg';
 
 import { pool } from '../config/database';
 import {
   EmailVerificationDocument,
   Payload,
+  ResetPasswordDocument,
   PayloadForLoginInput,
   PayloadWithoutPassword,
   UserDocument,
+  VerificationQuery,
 } from '../constants/types';
 import { generateCode } from '../middlewares/codes';
 import { VerificationCodeType } from '../constants/enumTypes';
 import { TokenExpiration } from '../utils/dates';
 import { FRONTEND_URL } from '../constants/env';
-import { sendEmailVerification } from '../utils/nodemailer';
+import { sendEmailVerification, sendPasswordReset } from '../utils/nodemailer';
 import { generateAccessToken } from '../middlewares/jwtAuth';
 
 const verifyNum = 15;
@@ -110,19 +113,18 @@ const verifyEmailService = async (
   // check if the token and user_id exist inside the verification_code table
   const verificationQuery = `SELECT * FROM verification_code WHERE user_id = $1 AND token = $2 AND purpose = $3`;
 
-  const verificationResult = await pool.query(verificationQuery, [
-    userId,
-    token,
-    VerificationCodeType.EmailVerification,
-  ]);
+  const verificationResult: QueryResult<VerificationQuery> = await pool.query(
+    verificationQuery,
+    [userId, token, VerificationCodeType.EmailVerification]
+  );
 
-  const verificationDetails = verificationResult.rows;
-  console.log('verificationDetails', verificationDetails[0]);
+  const verificationDetails = verificationResult.rows[0];
+  console.log('verificationDetails', verificationDetails);
   console.log('2verificationDetails', JSON.stringify(verificationDetails));
 
-  console.log('length:', verificationDetails.length);
+  console.log('length:', verificationDetails);
 
-  if (verificationDetails.length === 0) {
+  if (!verificationDetails) {
     throw new Error('No verification code found');
   }
 
@@ -133,15 +135,16 @@ const verifyEmailService = async (
     purpose,
     expires_at,
     created_at,
-  } = verificationDetails[0];
+  } = verificationDetails;
 
-  const currentTime = new Date();
+  const currentTime = Date.now();
+  const expiresAt = new Date(expires_at).getTime();
 
   const deleteQuery = `
   DELETE FROM verification_code WHERE user_id = $1 RETURNING *
   `;
 
-  if (currentTime > expires_at) {
+  if (currentTime > expiresAt) {
     const deleteData = await pool.query(deleteQuery, [user_id]);
     console.log('expired:', deleteData.rows[0]);
     throw new Error('Verification link has expired. Please request a new one');
@@ -151,18 +154,21 @@ const verifyEmailService = async (
   const updateQuery = `
   UPDATE users SET is_verified = true WHERE id = $1 RETURNING *
   `;
-  const updateResult = await pool.query(updateQuery, [user_id]);
+  const updateResult: QueryResult<UserDocument> = await pool.query(
+    updateQuery,
+    [user_id]
+  );
 
-  const updateUser = updateResult.rows;
+  const updateUser = updateResult.rows[0];
 
-  if (updateUser.length === 0) {
+  if (!updateUser) {
     throw new Error('Unable to set is_verified for this user');
   } else {
     // delete verification code from the database
     const deletedData = await pool.query(deleteQuery, [user_id]);
     console.log('verified:', deletedData.rows[0]);
 
-    const user = updateUser[0];
+    const user = updateUser;
 
     return user as UserDocument;
   }
@@ -293,8 +299,6 @@ const resendEmailVerificationLinkService = async (
 
   const user = userQueryResult.rows[0];
 
-  console.log('user: ' + JSON.stringify(user));
-
   if (!user) {
     throw new Error(`User with email: ${email} not found`);
   }
@@ -322,21 +326,21 @@ const resendEmailVerificationLinkService = async (
     num: verifyNum,
   });
 
+  const saveTokenQueryParams = `
+    INSERT INTO verification_code (user_id, token, purpose, expires_at) VALUES ($1, $2, $3, $4) RETURNING *
+    `;
+
+  const saveTokenResult = await pool.query(saveTokenQueryParams, [
+    user.id,
+    token,
+    VerificationCodeType.EmailVerification,
+    expireAt,
+  ]);
+
   const currentTime = Date.now();
 
   if (!savedToken) {
     // generate a new token
-
-    const saveTokenQueryParams = `
-    INSERT INTO verification_code (user_id, token, purpose, expires_at) VALUES ($1, $2, $3, $4) RETURNING *
-    `;
-
-    const saveTokenResult = await pool.query(saveTokenQueryParams, [
-      user.id,
-      token,
-      VerificationCodeType.EmailVerification,
-      expireAt,
-    ]);
 
     const saveToken = saveTokenResult.rows[0];
 
@@ -363,23 +367,7 @@ const resendEmailVerificationLinkService = async (
       VerificationCodeType.EmailVerification,
     ]);
 
-    console.log('++++ DELETED: ' + deleteTokenResult.rows[0]);
-
-    console.log('++++ token', token);
-
-    const saveTokenQueryParams = `
-    INSERT INTO verification_code (user_id, token, purpose, expires_at) VALUES ($1, $2, $3, $4) RETURNING *
-    `;
-
-    const saveTokenResult = await pool.query(saveTokenQueryParams, [
-      user.id,
-      token,
-      VerificationCodeType.EmailVerification,
-      expireAt,
-    ]);
-
     const saveToken = saveTokenResult.rows[0];
-    console.log('++++ saveToken', saveToken);
 
     if (!saveToken) {
       throw new Error('Unable to save token');
@@ -388,13 +376,10 @@ const resendEmailVerificationLinkService = async (
     const encodedExpiresAt = encodeURIComponent(
       saveToken.expires_at.toISOString()
     );
-    console.log('++++ encodedExpiresAt: ', encodedExpiresAt);
 
     // send email verification link to the new user here
     link = `${FRONTEND_URL}/email-verification/${saveToken.user_id}/${saveToken.token}`;
     // const link = `${FRONTEND_URL}/email-verification?userId=${saveToken.user_id}&token=${saveToken.token}&expires_at=${encodedExpiresAt}`;
-
-    console.log('++++ first link used:', link);
   } else if (savedToken) {
     const { token, user_id, expires_at } = savedToken;
     const encodedExpiresAt = encodeURIComponent(expires_at.toISOString());
@@ -411,7 +396,202 @@ const resendEmailVerificationLinkService = async (
 
   return sendTheMail;
 };
+
+const forgotPasswordService = async (email: string): Promise<object> => {
+  // check if the user with that email exists
+  const findUserQuery = `
+  SELECT * FROM users WHERE email = $1
+  `;
+
+  const findUserResult: QueryResult<UserDocument> = await pool.query(
+    findUserQuery,
+    [email]
+  );
+  const userFound = findUserResult.rows[0];
+
+  let link: string = '';
+
+  if (!userFound) {
+    throw new Error(`User with email ${email} not found`);
+  }
+
+  // check if the user has a saved token that has not expired
+  const findTokenQuery = `
+  SELECT * FROM verification_code WHERE user_id = $1 and purpose = $2
+  `;
+
+  const findTokenResult: QueryResult<VerificationQuery> = await pool.query(
+    findTokenQuery,
+    [userFound.id, VerificationCodeType.PasswordReset]
+  );
+
+  const tokenFound = findTokenResult.rows[0];
+
+  const token = await generateCode({
+    first_name: userFound.first_name,
+    last_name: userFound.last_name,
+    num: verifyNum,
+  });
+
+  const saveTokenQuery = `
+INSERT INTO verification_code (user_id, token, purpose, expires_at) VALUES ($1, $2, $3, $4) RETURNING *
+`;
+
+  if (!tokenFound) {
+    // generate token, save to database, generate link using the new token and user id
+
+    const saveTokenResult: QueryResult<VerificationQuery> = await pool.query(
+      saveTokenQuery,
+      [userFound.id, token, VerificationCodeType.PasswordReset, expireAt]
+    );
+
+    const saveToken = saveTokenResult.rows[0];
+
+    if (!saveToken) {
+      throw new Error('Could not save token');
+    }
+
+    const { token: tokenValue, user_id, expires_at } = saveToken;
+
+    const encodedExpiresAt = encodeURIComponent(
+      new Date(expires_at).toISOString()
+    );
+
+    link = `${FRONTEND_URL}/reset-password/${user_id}/${tokenValue}`;
+    // link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${tokenValue}&expiresAt=${encodedExpiresAt}`
+  } else if (tokenFound) {
+    // check if it has expired and generate a new token
+
+    const currentTime = Date.now();
+    const expiresAt = new Date(tokenFound.expires_at).getTime();
+
+    if (currentTime > expiresAt) {
+      // delete expired token, generate new token and save it
+      const deleteTokenQuery = `
+      DELETE FROM verification_code WHERE id = $1
+      `;
+      const deleteTokenResult: QueryResult<VerificationQuery> =
+        await pool.query(deleteTokenQuery, [tokenFound.id]);
+
+      const deletedToken = await deleteTokenResult.rows[0];
+      if (!deletedToken) {
+        throw new Error('Unable to delete token');
+      }
+
+      const saveTokenResult: QueryResult<VerificationQuery> = await pool.query(
+        saveTokenQuery,
+        [
+          userFound.id,
+          token,
+          VerificationCodeType.PasswordReset,
+          tokenFound.expires_at,
+        ]
+      );
+
+      const saveToken = saveTokenResult.rows[0];
+
+      if (!saveToken) {
+        throw new Error('Could not save token');
+      }
+
+      const { token: tokenValue, user_id, expires_at } = saveToken;
+
+      const encodedExpiresAt = encodeURIComponent(
+        new Date(expires_at).toISOString()
+      );
+
+      link = `${FRONTEND_URL}/reset-password/${user_id}/${tokenValue}`;
+      // link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${tokenValue}&expiresAt=${encodedExpiresAt}`
+    } else {
+      const { user_id, token, expires_at } = tokenFound;
+      const encodedExpiresAt = encodeURIComponent(
+        new Date(expires_at).toISOString()
+      );
+
+      link = `${FRONTEND_URL}/reset-password/${user_id}/${token}`;
+      // link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${tokenValue}&expiresAt=${encodedExpiresAt}
+    }
+  }
+
+  // send the mail using the first name, email and link
+  const sendPasswordResetLink = await sendPasswordReset({
+    first_name: userFound.first_name,
+    email: userFound.email,
+    link,
+  });
+
+  return sendPasswordResetLink;
+};
+
+const resetPasswordService = async (
+  payload: ResetPasswordDocument
+): Promise<string> => {
+  const { user_id, token, password } = payload;
+
+  // find verification code using the user id, token, and purpose
+  const findCodeQuery = `
+  SELECT * FROM verification_code WHERE user_id = $1 AND token = $2 AND purpose = $3
+  `;
+
+  const findCodeResult: QueryResult<VerificationQuery> = await pool.query(
+    findCodeQuery,
+    [user_id, token, VerificationCodeType.PasswordReset]
+  );
+
+  const findCode = findCodeResult.rows[0];
+  if (!findCode) {
+    throw new Error('Invalid verification code');
+  }
+
+  // if found, check if it has not expired
+  const currentTime = Date.now();
+  const expiresAt = new Date(findCode.expires_at).getTime();
+  console.log('current time: ' + currentTime);
+  console.log('expiresAt: ' + expiresAt);
+
+  if (currentTime > expiresAt) {
+    // if expires, delete the code and throw an error
+
+    const deleteCodeQuery = `
+    DELETE FROM verification_code WHERE id = $1 RETURNING *
+    `;
+    const deleteCodeResult: QueryResult<VerificationQuery> = await pool.query(
+      deleteCodeQuery,
+      [findCode.id]
+    );
+
+    throw new Error(
+      `This code has expired. Please request for a new password reset link to continue. ${deleteCodeResult}`
+    );
+  }
+
+  const updateUserPasswordQuery = `
+  UPDATE users SET password = $1 WHERE id = $2 RETURNING first_name
+  `;
+  const updateUserPasswordResult: QueryResult<
+    Pick<UserDocument, 'first_name'>
+  > = await pool.query(updateUserPasswordQuery, [password, findCode.user_id]);
+
+  const updateUserPassword = updateUserPasswordResult.rows[0];
+  if (!updateUserPassword) {
+    throw new Error('Unable to update user password');
+  }
+
+  const deleteCodeQuery = `
+    DELETE FROM verification_code WHERE id = $1 RETURNING *
+    `;
+
+  const deleteCodeResult: QueryResult<VerificationQuery> = await pool.query(
+    deleteCodeQuery,
+    [findCode.id]
+  );
+
+  return `${updateUserPassword.first_name}, your password has been updated successfully. Please login to your account with the new password.`;
+};
+
 export {
+  resetPasswordService,
+  forgotPasswordService,
   registerUserService,
   verifyEmailService,
   loginUserService,

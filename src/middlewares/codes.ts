@@ -35,4 +35,4 @@ const generateCode = async ({
   return code;
 };
 
-export { generateCode };
+export { generateCode, generateRandomCode };

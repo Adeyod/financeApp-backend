@@ -1,5 +1,7 @@
 const forbiddenCharsRegex = /[|!{}()&=[\]===><>]/;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const phoneNumberPattern = /^\+\d{10,14}$/;
+
 const passwordRegex =
   /^(?=.*[!@#$%^&*()_+{}\[\]:;<>,.?~\\/-])(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{8,20}$/;
 
@@ -8,22 +10,20 @@ const validateField = (field: string, value?: string): string => {
   if (!trimmed) {
     throw new Error(`${value} field is required`);
   }
-  if (forbiddenCharsRegex.test(trimmed)) {
-    throw new Error(`Forbidden characters at ${value}`);
+
+  if (value === 'phone') {
+    if (!phoneNumberPattern.test(trimmed)) {
+      console.log(trimmed);
+      throw new Error(`Invalid input at ${value} field`);
+    }
+  } else if (value === 'email') {
+    if (!emailRegex.test(trimmed)) {
+      throw new Error('Invalid input at Email field');
+    }
+  } else if (forbiddenCharsRegex.test(trimmed)) {
+    throw new Error(`Invalid input at ${value} field`);
   }
   return trimmed;
-};
-
-const validateEmail = (field: string): string => {
-  const value = field.trim();
-  if (!value) {
-    throw new Error('Email field is required');
-  }
-  if (!emailRegex.test(value)) {
-    throw new Error('Invalid input for Email field');
-  }
-
-  return value;
 };
 
 const validatePassword = (
@@ -64,4 +64,4 @@ const validatePassword = (
   return trimmedField;
 };
 
-export { validateField, validateEmail, validatePassword };
+export { validateField, validatePassword };

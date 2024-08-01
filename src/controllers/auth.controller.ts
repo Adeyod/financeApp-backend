@@ -3,11 +3,7 @@ import {
   PayloadForLoginInput,
   User,
 } from '../constants/types';
-import {
-  validateEmail,
-  validateField,
-  validatePassword,
-} from '../middlewares/validation';
+import { validateField, validatePassword } from '../middlewares/validation';
 import {
   registerUserService,
   verifyEmailService,
@@ -15,13 +11,15 @@ import {
   resendEmailVerificationLinkService,
   forgotPasswordService,
   resetPasswordService,
-} from '../services/user.service';
+  phoneVerificationService,
+} from '../services/auth.service';
 
 import catchErrors from '../utils/tryCatch';
 
 export const registerUser = catchErrors(async (req, res) => {
   const {
     first_name,
+    user_name,
     last_name,
     email,
     phone_number,
@@ -30,8 +28,11 @@ export const registerUser = catchErrors(async (req, res) => {
   }: User = req.body;
 
   const firstName = validateField(first_name, 'first name');
+  const userName = validateField(user_name, 'user name');
   const lastName = validateField(last_name, 'last name');
-  const emailValue = validateEmail(email);
+  const emailValue = validateField(email, 'email');
+  const phoneValue = validateField(phone_number, 'phone');
+
   const passwordValue = validatePassword(
     password,
     confirm_password,
@@ -41,9 +42,10 @@ export const registerUser = catchErrors(async (req, res) => {
   // call a service
   const payload = {
     first_name: firstName,
+    user_name: userName,
     last_name: lastName,
     email: emailValue,
-    phone_number,
+    phone_number: phoneValue,
     password: passwordValue,
   };
   const user = await registerUserService(payload);
@@ -76,12 +78,19 @@ export const verifyUserEmail = catchErrors(async (req, res) => {
 
 export const loginUser = catchErrors(async (req, res) => {
   // get the details from the req.body and validate it
-  const { email, password }: PayloadForLoginInput = req.body;
-  const emailValue = validateEmail(email);
+  const { loginInput, password }: PayloadForLoginInput = req.body;
+
+  let loginInputValue: string = '';
+
+  if (loginInput.includes('@')) {
+    loginInputValue = validateField(loginInput, 'email');
+  } else {
+    loginInputValue = validateField(loginInput, 'user_name');
+  }
   const passwordValue = validatePassword(password, undefined, 'login');
 
   const payload = {
-    email: emailValue,
+    loginInput: loginInputValue,
     password: passwordValue,
   };
 
@@ -105,7 +114,7 @@ export const loginUser = catchErrors(async (req, res) => {
 
 export const resendEmailVerificationLink = catchErrors(async (req, res) => {
   const { email } = req.body;
-  const checkEmail = validateEmail(email);
+  const checkEmail = validateField(email, 'email');
 
   // call a service
   const newEmail = await resendEmailVerificationLinkService(email);
@@ -122,7 +131,7 @@ export const forgotPassword = catchErrors(async (req, res) => {
   // get email and validate it
   const { email } = req.body;
 
-  const emailValue = validateEmail(email);
+  const emailValue = validateField(email, 'email');
 
   // call a service
   const forgotPasswordResult = await forgotPasswordService(emailValue);
@@ -161,4 +170,14 @@ export const resetPassword = catchErrors(async (req, res) => {
     success: true,
     status: 200,
   });
+});
+
+export const phoneVerification = catchErrors(async (req, res) => {
+  const { phone_number } = req.body;
+  // validate phone number
+
+  // call a service
+  await phoneVerificationService;
+
+  // send response
 });

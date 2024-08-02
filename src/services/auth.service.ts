@@ -104,6 +104,7 @@ const registerUserService = async (
   // const encodedExpiresAt = encodeURIComponent(expires_at.toISOString());
 
   // send email verification link to the new user here
+
   const link = `${FRONTEND_URL}/auth/email-verification/${others.id}/${tokenDetails}`;
   // const link = `${FRONTEND_URL}/email-verification?userId=${others.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
 

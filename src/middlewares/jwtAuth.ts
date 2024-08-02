@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import catchError from '../utils/tryCatch';
 import { JWT_SECRET } from '../constants/env';
 import { Response } from 'express';
+require('dotenv').config();
 
 const generateAccessToken = async (userId: string, userEmail: string) => {
   try {

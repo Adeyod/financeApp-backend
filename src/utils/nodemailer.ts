@@ -2,16 +2,17 @@ import nodemailer from 'nodemailer';
 import ejs from 'ejs';
 import fs from 'fs';
 import path from 'path';
-import {
-  NODEMAILER_PORT,
-  NODEMAILER_HOST,
-  NODEMAILER_PASS,
-  NODEMAILER_SECURE,
-  NODEMAILER_USER,
-} from '../constants/env';
+// import {
+//   NODEMAILER_PORT,
+//   NODEMAILER_HOST,
+//   NODEMAILER_PASS,
+//   NODEMAILER_SECURE,
+//   NODEMAILER_USER,
+// } from '../constants/env';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
 
 import catchError from './tryCatch';
+require('dotenv').config();
 
 type EmailType = {
   email: string;
@@ -26,15 +27,15 @@ const getMailTemplate = (filePath: string, data: {}) => {
 };
 
 const transporter = nodemailer.createTransport({
-  host: NODEMAILER_HOST,
-  port: NODEMAILER_PORT,
-  secure: NODEMAILER_SECURE,
+  host: process.env.NODEMAILER_HOST,
+  port: process.env.NODEMAILER_PORT,
+  secure: process.env.NODEMAILER_SECURE,
   tls: {
     rejectUnauthorized: false,
   },
   auth: {
-    user: NODEMAILER_USER,
-    pass: NODEMAILER_PASS,
+    user: process.env.NODEMAILER_USER,
+    pass: process.env.NODEMAILER_PASS,
   },
 } as SMTPTransport.Options);
 
@@ -48,7 +49,7 @@ const sendEmailVerification = async ({
     link,
   });
   const info = await transporter.sendMail({
-    from: NODEMAILER_USER,
+    from: process.env.NODEMAILER_USER,
     to: email,
     subject: 'Email verification',
     html: emailVerificationContent,
@@ -64,7 +65,7 @@ const sendPasswordReset = async ({ first_name, email, link }: EmailType) => {
   });
 
   const info = await transporter.sendMail({
-    from: NODEMAILER_USER,
+    from: process.env.NODEMAILER_USER,
     to: email,
     subject: 'Password reset',
     html: passwordResetContent,

@@ -5,11 +5,12 @@ import dotenv from 'dotenv';
 
 import { errorHandler } from './middlewares/errorHandler';
 import authRoutes from './routes/auth.route';
+import userRoutes from './routes/user.route';
 
 dotenv.config();
 const app = express();
 
-const port = process.env.PORT || 3000;
+const port = process.env.SERVER_PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -22,6 +23,7 @@ app.use(
 app.use(cookieParser());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use(errorHandler);
 
 app.listen(port, () => {

@@ -1,27 +1,44 @@
+import { NextFunction, Request, Response } from 'express';
+
 // export type
-export type comparePassType = {
+type UserInJwt = {
+  userId: string;
+  userEmail: string;
+  iat: number;
+  exp: number;
+};
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: UserInJwt;
+    }
+  }
+}
+
+type comparePassType = {
   password: string;
   confirm_password: string;
 };
 
-export type TokenSearchType = {
+type TokenSearchType = {
   user_id: string;
   purpose: string;
   token?: string;
 };
 
-export type DeleteTokenType = {
+type DeleteTokenType = {
   user_id: string;
   purpose: string;
   id?: string;
 };
 
-export type AccountCreationType = {
+type AccountCreationType = {
   user_id: string;
   accountNumber: string;
 };
 
-export type AccountCreatedDetailsType = {
+type AccountCreatedDetailsType = {
   id: string;
   user_id: string;
   account_number: string;
@@ -31,12 +48,12 @@ export type AccountCreatedDetailsType = {
   updated_at: string;
 };
 
-export type UserWithAccountType = {
+type UserWithAccountType = {
   userData: UserDocument;
   account: AccountCreatedDetailsType;
 };
 
-export type Payload = {
+type Payload = {
   user_name: string;
   first_name: string;
   last_name: string;
@@ -44,21 +61,23 @@ export type Payload = {
   phone_number: string;
   password: string;
 };
-export type PayloadForLoginInput = {
+
+type PayloadForLoginInput = {
   loginInput: string;
   password: string;
 };
 
-export type UserDocument = Payload & {
+type UserDocument = Payload & {
   id: string;
   created_at: string;
   is_verified: boolean;
   updated_at: string;
   two_fa_enabled: boolean;
   biometric_enabled: boolean;
+  is_phone_verified: boolean;
 };
 
-export type VerificationQuery = {
+type VerificationQuery = {
   id: string;
   user_id: string;
   token: string;
@@ -67,18 +86,18 @@ export type VerificationQuery = {
   expires_at: string;
 };
 
-export type VerificationParams = Pick<
+type VerificationParams = Pick<
   VerificationQuery,
   'user_id' | 'token' | 'purpose' | 'expires_at'
 >;
 
-export type PayloadWithoutPassword = Omit<UserDocument, 'password'>;
+type PayloadWithoutPassword = Omit<UserDocument, 'password'>;
 
-export type LoginParams = PayloadWithoutPassword & {
+type LoginParams = PayloadWithoutPassword & {
   access_token: string;
 };
 
-export type EmailVerificationDocument = {
+type EmailVerificationDocument = {
   id: string;
   user_id: string;
   token: string;
@@ -87,7 +106,7 @@ export type EmailVerificationDocument = {
   expires_at: Date;
 };
 
-export type User = comparePassType & {
+type User = comparePassType & {
   user_name: string;
   first_name: string;
   last_name: string;
@@ -95,8 +114,49 @@ export type User = comparePassType & {
   phone_number: string;
 };
 
-export type ResetPasswordDocument = {
+type ResetPasswordDocument = {
   user_id: string;
   token: string;
   password: string;
+};
+
+type AsyncHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => Promise<any>;
+
+type SmsType = {
+  code: number;
+  phone_number: string;
+};
+
+type changePasswordType = {
+  paramId: string;
+  reqId: string;
+  currentPassword: string;
+  newPassword: string;
+};
+
+export {
+  changePasswordType,
+  SmsType,
+  UserInJwt,
+  TokenSearchType,
+  DeleteTokenType,
+  UserWithAccountType,
+  PayloadForLoginInput,
+  AccountCreationType,
+  AccountCreatedDetailsType,
+  Payload,
+  VerificationParams,
+  VerificationQuery,
+  UserDocument,
+  PayloadWithoutPassword,
+  LoginParams,
+  EmailVerificationDocument,
+  AsyncHandler,
+  ResetPasswordDocument,
+  comparePassType,
+  User,
 };

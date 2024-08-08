@@ -8,9 +8,11 @@ import {
   AccountCreationType,
   ResetPasswordDocument,
   AccountCreatedDetailsType,
+  SmsType,
 } from '../constants/types';
 import { knexConnect } from '../knex-db/knex';
 import { generateRandomCode } from './codes';
+import twilio from 'twilio';
 
 const createVerificationCodeFunction = async ({
   token,
@@ -41,6 +43,7 @@ const findTokenFunction = async ({
       purpose,
     });
 
+  console.log('I am checking for token');
   if (token) {
     query = query.andWhere({ token });
   }
@@ -80,6 +83,14 @@ const findUserByEmailFunction = async (email: string) => {
   const user = await knexConnect<UserDocument>('users')
     .select('*')
     .where('email', email);
+  return user;
+};
+
+const findUserByIdFunction = async (user_id: string) => {
+  const user = await knexConnect<UserDocument>('users')
+    .select('*')
+    .where('id', user_id);
+
   return user;
 };
 
@@ -174,7 +185,32 @@ const saveAccountNumberFunction = async ({
   return saveAccount;
 };
 
+const sendSMSFunction = async ({
+  code,
+  phone_number,
+}: SmsType): Promise<void> => {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID as string;
+  const authToken = process.env.TWILIO_AUTH_TOKEN as string;
+
+  console.log(accountSid, authToken);
+
+  const client = twilio(accountSid, authToken);
+  try {
+    const result = await client.messages.create({
+      body: `Your phone verification code is ${code}. Don't share it. This code expires in 10 minutes.`,
+      to: phone_number, // Text your number
+      from: '+12345678901', // From a valid Twilio number
+    });
+    // .then((message) => console.log(message.sid));
+    console.log(result);
+  } catch (error) {
+    console.log(error);
+  }
+};
+
 export {
+  sendSMSFunction,
+  findUserByIdFunction,
   saveAccountNumberFunction,
   generateAccountNumberFunction,
   findUserByUsername,

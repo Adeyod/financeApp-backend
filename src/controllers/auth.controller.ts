@@ -11,12 +11,13 @@ import {
   resendEmailVerificationLinkService,
   forgotPasswordService,
   resetPasswordService,
-  phoneVerificationService,
+  sendPhoneVerificationCodeService,
+  changePasswordService,
 } from '../services/auth.service';
 
 import catchErrors from '../utils/tryCatch';
 
-export const registerUser = catchErrors(async (req, res) => {
+const registerUser = catchErrors(async (req, res) => {
   const {
     first_name,
     user_name,
@@ -59,7 +60,7 @@ export const registerUser = catchErrors(async (req, res) => {
   });
 });
 
-export const verifyUserEmail = catchErrors(async (req, res) => {
+const verifyUserEmail = catchErrors(async (req, res) => {
   // get the params
   const { userId, token } = req.params;
 
@@ -76,7 +77,7 @@ export const verifyUserEmail = catchErrors(async (req, res) => {
   });
 });
 
-export const loginUser = catchErrors(async (req, res) => {
+const loginUser = catchErrors(async (req, res) => {
   // get the details from the req.body and validate it
   const { loginInput, password }: PayloadForLoginInput = req.body;
 
@@ -112,7 +113,7 @@ export const loginUser = catchErrors(async (req, res) => {
     });
 });
 
-export const resendEmailVerificationLink = catchErrors(async (req, res) => {
+const resendEmailVerificationLink = catchErrors(async (req, res) => {
   const { email } = req.body;
   const checkEmail = validateField(email, 'email');
 
@@ -127,7 +128,7 @@ export const resendEmailVerificationLink = catchErrors(async (req, res) => {
   });
 });
 
-export const forgotPassword = catchErrors(async (req, res) => {
+const forgotPassword = catchErrors(async (req, res) => {
   // get email and validate it
   const { email } = req.body;
 
@@ -144,7 +145,7 @@ export const forgotPassword = catchErrors(async (req, res) => {
   });
 });
 
-export const resetPassword = catchErrors(async (req, res) => {
+const resetPassword = catchErrors(async (req, res) => {
   // get user id, and token from params
   const { userId, token } = req.params;
   // get new password and confirm password from body
@@ -172,12 +173,59 @@ export const resetPassword = catchErrors(async (req, res) => {
   });
 });
 
-export const phoneVerification = catchErrors(async (req, res) => {
-  const { phone_number } = req.body;
-  // validate phone number
+const changePassword = catchErrors(async (req, res) => {
+  const { user_id } = req.params;
+  const user = req.user;
+
+  const { currentPassword, newPassword, confirmNewPassword } = await req.body;
+  const validPassword = validatePassword(
+    newPassword,
+    confirmNewPassword,
+    'registration'
+  );
+
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  const changePasswordServiceResult = await changePasswordService({
+    paramId: user_id,
+    reqId: user.userId,
+    currentPassword,
+    newPassword,
+  });
+
+  return res.status(200).json({
+    message: `${changePasswordServiceResult}, your password has been changed successfully. You will need to use it to login henceforth.`,
+    success: true,
+    status: 200,
+  });
+});
+
+const sendPhoneVerificationCode = catchErrors(async (req, res) => {
+  const { user_id } = req.params;
+  const user = req.user;
+
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
 
   // call a service
-  await phoneVerificationService;
+  const serviceResult = await sendPhoneVerificationCodeService(
+    user_id,
+    user.userId
+  );
 
   // send response
 });
+
+export {
+  registerUser,
+  verifyUserEmail,
+  loginUser,
+  resendEmailVerificationLink,
+  changePassword,
+  sendPhoneVerificationCode,
+  resetPassword,
+  forgotPassword,
+};

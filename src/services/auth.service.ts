@@ -7,8 +7,9 @@ import {
   UserDocument,
   LoginParams,
   UserWithAccountType,
+  changePasswordType,
 } from '../constants/types';
-import { generateCode } from '../middlewares/codes';
+import { generateCode, generateRandomCode } from '../middlewares/codes';
 import { VerificationCodeType } from '../constants/enumTypes';
 import { TokenExpiration, encodeExpiresAt } from '../utils/dates';
 import { FRONTEND_URL } from '../constants/env';
@@ -19,13 +20,16 @@ import {
   deleteTokenFunction,
   findTokenFunction,
   findUserByEmailFunction,
+  findUserByIdFunction,
   findUserByUsername,
   generateAccountNumberFunction,
   registerNewUserFunction,
   saveAccountNumberFunction,
+  sendSMSFunction,
   updateUserPasswordFunction,
   updateUserVerificationFunction,
 } from '../middlewares/functions';
+import { changePassword } from '../controllers/auth.controller';
 
 const verifyNum = 15;
 const expireAt = TokenExpiration(30);
@@ -115,16 +119,19 @@ const registerUserService = async (
     link,
   });
 
+  console.log('mailSent: ' + mailSent);
+
   // create the default account number here and make sure it's unique
   const accountNumber = await generateAccountNumberFunction();
 
   const accountString = JSON.stringify(accountNumber);
 
-  const id = 'cb09c0b8-5f46-4d5c-b0a9-cb02ad69a7e6';
   const userNewAccountSaved = await saveAccountNumberFunction({
     user_id: others.id,
     accountNumber: accountString,
   });
+
+  console.log('userNewAccountSaved', userNewAccountSaved);
 
   const dataToSend = {
     userData: others as UserDocument,
@@ -163,7 +170,8 @@ const verifyEmailService = async (
   const currentTime = Date.now();
   const expiresAt = convertExpireDateToNumber(expires_at);
 
-  console.log(currentTime, expiresAt);
+  console.log('expiresAt', expiresAt);
+  console.log('currentTime', currentTime);
 
   if (currentTime > expiresAt) {
     await deleteTokenFunction({
@@ -381,6 +389,8 @@ const resendEmailVerificationLinkService = async (
     throw new Error('User already verified');
   }
 
+  let link: string = '';
+
   // if found, use the user.id and purpose to find token and also check if it is still active
 
   const savedTokenQueryResult = await findTokenFunction({
@@ -388,48 +398,60 @@ const resendEmailVerificationLinkService = async (
     token: undefined,
     purpose: VerificationCodeType.EmailVerification,
   });
+  console.log('savedTokenQueryResult', savedTokenQueryResult);
 
   const savedToken = savedTokenQueryResult[0];
 
-  let link: string = '';
-  let token = await generateCode({
-    first_name: user.first_name,
-    last_name: user.last_name,
-    num: verifyNum,
-  });
-
-  const saveTokenResult = await createVerificationCodeFunction({
-    token,
-    user_id: user.id,
-    purpose: VerificationCodeType.EmailVerification,
-    expires_at: expireAt.toISOString(),
-  });
-
   const currentTime = Date.now();
-
-  const expiresAt = convertExpireDateToNumber(savedToken.expires_at);
 
   if (!savedToken) {
     // generate a new token
+    let token = await generateCode({
+      first_name: user.first_name,
+      last_name: user.last_name,
+      num: verifyNum,
+    });
+
+    const saveTokenResult = await createVerificationCodeFunction({
+      token,
+      user_id: user.id,
+      purpose: VerificationCodeType.EmailVerification,
+      expires_at: expireAt.toISOString(),
+    });
 
     const saveToken = saveTokenResult[0];
+    console.log('Newly generated saveToken', saveToken);
 
     if (!saveToken) {
       throw new Error('Unable to save token');
     }
 
     const encodedExpiresAt = encodeExpiresAt(saveToken.expires_at);
+    console.log('Newly encodedExpiresAt', encodedExpiresAt);
 
     // send email verification link to the new user here
     link = `${FRONTEND_URL}/auth/email-verification/${saveToken.user_id}/${saveToken.token}`;
     // const link = `${FRONTEND_URL}/email-verification?userId=${saveToken.user_id}&token=${saveToken.token}&expires_at=${encodedExpiresAt}`;
 
     // link email and first name
-  } else if (currentTime > expiresAt) {
+  } else if (currentTime > convertExpireDateToNumber(savedToken.expires_at)) {
     const deleteTokenResult = await deleteTokenFunction({
       user_id: user.id,
       purpose: VerificationCodeType.EmailVerification,
       id: savedToken.id,
+    });
+    console.log('deleteTokenResult', deleteTokenResult);
+    let token = await generateCode({
+      first_name: user.first_name,
+      last_name: user.last_name,
+      num: verifyNum,
+    });
+
+    const saveTokenResult = await createVerificationCodeFunction({
+      token,
+      user_id: user.id,
+      purpose: VerificationCodeType.EmailVerification,
+      expires_at: expireAt.toISOString(),
     });
 
     const saveToken = saveTokenResult[0];
@@ -439,6 +461,7 @@ const resendEmailVerificationLinkService = async (
     }
 
     const encodedExpiresAt = encodeExpiresAt(saveToken.expires_at);
+    console.log('Time check encodedExpiresAt', encodedExpiresAt);
 
     // send email verification link to the new user here
     link = `${FRONTEND_URL}/auth/email-verification/${saveToken.user_id}/${saveToken.token}`;
@@ -446,6 +469,7 @@ const resendEmailVerificationLinkService = async (
   } else if (savedToken) {
     const { token, user_id, expires_at } = savedToken;
     const encodedExpiresAt = encodeExpiresAt(expires_at);
+    console.log('I found token that has not expired and using it');
 
     link = `${FRONTEND_URL}/auth/email-verification/${user_id}/${token}`;
     // const link = `${FRONTEND_URL}/email-verification?userId=${user_id}&token=${token}&expires_at=${encodedExpiresAt}`;
@@ -456,6 +480,7 @@ const resendEmailVerificationLinkService = async (
     first_name: user.first_name,
     link,
   });
+  console.log('sendTheMail', sendTheMail);
 
   return sendTheMail;
 };
@@ -625,10 +650,77 @@ const resetPasswordService = async (
   return `${updateUserPassword.first_name}, your password has been updated successfully. Please login to your account with the new password.`;
 };
 
-const phoneVerificationService = () => {};
+const sendPhoneVerificationCodeService = async (
+  user_id: string,
+  userId: string
+) => {
+  console.log(userId);
+  console.log(user_id);
+
+  if (user_id !== userId) {
+    throw new Error('You can do phone verification only for your account');
+  }
+
+  // get the user details from the database
+  // generate 6 digit pin and send to the phone number of the user
+  // set expires to 10mins
+  const findUserByIdResult = await findUserByIdFunction(user_id);
+  const userDetails = findUserByIdResult[0];
+
+  if (userDetails.is_phone_verified) {
+    throw new Error('Phone number already verified');
+  }
+
+  const phoneCode = generateRandomCode(6);
+
+  const smsResult = await sendSMSFunction({
+    code: phoneCode,
+    phone_number: userDetails.phone_number,
+  });
+
+  console.log(smsResult);
+
+  return;
+};
+
+const changePasswordService = async ({
+  paramId,
+  reqId,
+  currentPassword,
+  newPassword,
+}: changePasswordType): Promise<string> => {
+  if (paramId !== reqId) {
+    throw new Error('You are not allowed to change this password');
+  }
+
+  const userDetails = await findUserByIdFunction(paramId);
+  const user = userDetails[0];
+  if (!user) {
+    throw new Error('User does not exist');
+  }
+
+  const passwordCompare = await bcrypt.compare(currentPassword, user.password);
+  if (!passwordCompare) {
+    throw new Error('Invalid credentials');
+  }
+
+  const hashPassword = await bcrypt.hash(newPassword, 10);
+
+  const updatePassword = await updateUserPasswordFunction({
+    user_id: user.id,
+    password: hashPassword,
+  });
+
+  if (!updatePassword) {
+    throw new Error('Unable to update password');
+  }
+
+  return user.first_name;
+};
 
 export {
-  phoneVerificationService,
+  changePasswordService,
+  sendPhoneVerificationCodeService,
   resetPasswordService,
   forgotPasswordService,
   registerUserService,

@@ -1,10 +1,4 @@
-import { NextFunction, Request, Response } from 'express';
-
-type AsyncHandler = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => Promise<any>;
+import { AsyncHandler } from '../constants/types';
 
 const catchError =
   (controller: AsyncHandler): AsyncHandler =>

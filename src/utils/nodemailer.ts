@@ -2,23 +2,11 @@ import nodemailer from 'nodemailer';
 import ejs from 'ejs';
 import fs from 'fs';
 import path from 'path';
-// import {
-//   NODEMAILER_PORT,
-//   NODEMAILER_HOST,
-//   NODEMAILER_PASS,
-//   NODEMAILER_SECURE,
-//   NODEMAILER_USER,
-// } from '../constants/env';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
+import { EmailType } from '../constants/types';
 
 import catchError from './tryCatch';
 require('dotenv').config();
-
-type EmailType = {
-  email: string;
-  first_name: string;
-  link: string;
-};
 
 const getMailTemplate = (filePath: string, data: {}) => {
   const templatePath = path.join(__dirname, './templates', filePath);

@@ -16,7 +16,7 @@ declare global {
   }
 }
 
-type comparePassType = {
+type ComparePassType = {
   password: string;
   confirm_password: string;
 };
@@ -106,7 +106,7 @@ type EmailVerificationDocument = {
   expires_at: Date;
 };
 
-type User = comparePassType & {
+type User = ComparePassType & {
   user_name: string;
   first_name: string;
   last_name: string;
@@ -131,15 +131,30 @@ type SmsType = {
   phone_number: string;
 };
 
-type changePasswordType = {
+type ChangePasswordType = {
   paramId: string;
   reqId: string;
   currentPassword: string;
   newPassword: string;
 };
 
+type EmailType = {
+  email: string;
+  first_name: string;
+  link: string;
+};
+
+type EmailJobData = {
+  email: string;
+  first_name: string;
+  link: string;
+  type: 'email-verification' | 'forgot-password';
+};
+
 export {
-  changePasswordType,
+  EmailJobData,
+  EmailType,
+  ChangePasswordType,
   SmsType,
   UserInJwt,
   TokenSearchType,
@@ -157,6 +172,6 @@ export {
   EmailVerificationDocument,
   AsyncHandler,
   ResetPasswordDocument,
-  comparePassType,
+  ComparePassType,
   User,
 };

@@ -7,7 +7,8 @@ import {
   UserDocument,
   LoginParams,
   UserWithAccountType,
-  changePasswordType,
+  ChangePasswordType,
+  EmailJobData,
 } from '../constants/types';
 import { generateCode, generateRandomCode } from '../middlewares/codes';
 import { VerificationCodeType } from '../constants/enumTypes';
@@ -30,6 +31,7 @@ import {
   updateUserVerificationFunction,
 } from '../middlewares/functions';
 import { changePassword } from '../controllers/auth.controller';
+import { queue } from '../utils/queue';
 
 const verifyNum = 15;
 const expireAt = TokenExpiration(30);
@@ -85,8 +87,6 @@ const registerUserService = async (
     num: verifyNum,
   });
 
-  console.log('token: ' + token);
-
   // save token and user inside database
   const newVerificationCodeResult = await createVerificationCodeFunction({
     token,
@@ -107,16 +107,21 @@ const registerUserService = async (
   const encodedExpiresAt = expires_at;
   // const encodedExpiresAt = encodeURIComponent(expires_at.toISOString());
 
-  // send email verification link to the new user here
-
   const link = `${FRONTEND_URL}/auth/email-verification/${others.id}/${tokenDetails}`;
   // const link = `${FRONTEND_URL}/email-verification?userId=${others.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
 
-  // link email and first name
-  const mailSent = await sendEmailVerification({
+  const jobData = {
     email: others.email,
     first_name: others.first_name,
     link,
+    type: 'email-verification',
+  };
+
+  // send email verification link to the new user here
+  const mailSent = await queue.add('sendEmail', jobData, {
+    attempts: 5,
+    backoff: 10000,
+    removeOnComplete: true,
   });
 
   console.log('mailSent: ' + mailSent);
@@ -231,8 +236,6 @@ const loginUserService = async (
     throw new Error('Invalid credentials');
   }
 
-  console.log('validatePassword: ' + validatePassword);
-
   // check if the user is verified
   if (!user.is_verified) {
     //  we either have a token or we don't have
@@ -247,7 +250,6 @@ const loginUserService = async (
     });
 
     const activeToken = activeTokenResult[0];
-    console.log('activeTokenResult: ' + activeToken);
 
     if (!activeToken) {
       // meaning there is no active token, create the token, save to database, make a link and send to user
@@ -263,7 +265,6 @@ const loginUserService = async (
         purpose: VerificationCodeType.EmailVerification,
         expires_at: expireAt.toISOString(),
       });
-      console.log('verificationTokenResult: ' + verificationTokenResult);
 
       const newVerificationCode = verificationTokenResult[0];
 
@@ -279,12 +280,21 @@ const loginUserService = async (
       link = `${FRONTEND_URL}/auth/email-verification/${user.id}/${tokenDetails}`;
       //  link = `${FRONTEND_URL}/email-verification?userId=${user.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
 
-      // link email and first name
-      const mailSent = await sendEmailVerification({
+      const jobData = {
         email: user.email,
         first_name: user.first_name,
         link,
+        type: 'email-verification',
+      };
+
+      // link email and first name
+      const mailSent = await queue.add('sendEmail', jobData, {
+        attempts: 5,
+        backoff: 10000,
+        removeOnComplete: true,
       });
+
+      console.log('sending email login part 1:', mailSent);
 
       throw new Error('Please check your email to verify your account');
     } else {
@@ -294,7 +304,6 @@ const loginUserService = async (
 
       // check if expires_at is has not expired
       const currentTime = Date.now();
-      console.log(currentTime);
 
       const checkExpires = convertExpireDateToNumber(expires_at);
       console.log(checkExpires);
@@ -305,7 +314,6 @@ const loginUserService = async (
           purpose: VerificationCodeType.EmailVerification,
           id: activeToken.id,
         });
-        console.log('deleteExpiredToken: ' + deleteExpiredToken);
 
         token = await generateCode({
           first_name: user.first_name,
@@ -319,7 +327,6 @@ const loginUserService = async (
           purpose: VerificationCodeType.EmailVerification,
           expires_at: expireAt.toISOString(),
         });
-        console.log('verificationTokenResult ++: ' + verificationTokenResult);
 
         const newVerificationCode = verificationTokenResult[0];
 
@@ -335,12 +342,21 @@ const loginUserService = async (
         link = `${FRONTEND_URL}/auth/email-verification/${user.id}/${tokenDetails}`;
         //  link = `${FRONTEND_URL}/email-verification?userId=${user.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
 
-        // link email and first name
-        const mailSent = await sendEmailVerification({
+        const jobData = {
           email: user.email,
           first_name: user.first_name,
           link,
+          type: 'email-verification',
+        };
+
+        // sending email verification to the queue
+        const mailSent = await queue.add('sendEmail', jobData, {
+          attempts: 5,
+          backoff: 10000,
+          removeOnComplete: true,
         });
+
+        console.log('sending email login part 2:', mailSent);
 
         throw new Error('Please check your email to verify your account');
       } else {
@@ -349,12 +365,21 @@ const loginUserService = async (
         link = `${FRONTEND_URL}/auth/email-verification/${user_id}/${token}`;
         //  link = `${FRONTEND_URL}/email-verification?userId=${user_id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
 
-        // link email and first name
-        const mailSent = await sendEmailVerification({
+        const jobData = {
           email: user.email,
           first_name: user.first_name,
           link,
+          type: 'email-verification',
+        };
+
+        //  sending email verification to the queue
+        const mailSent = await queue.add('sendEmail', jobData, {
+          attempts: 5,
+          backoff: 10000,
+          removeOnComplete: true,
         });
+
+        console.log('sending email login part 3:', mailSent);
 
         throw new Error('Please check your email to verify your account');
       }
@@ -475,12 +500,20 @@ const resendEmailVerificationLinkService = async (
     // const link = `${FRONTEND_URL}/email-verification?userId=${user_id}&token=${token}&expires_at=${encodedExpiresAt}`;
   }
 
-  const sendTheMail = await sendEmailVerification({
+  const jobData = {
     email: user.email,
     first_name: user.first_name,
     link,
+    type: 'email-verification',
+  };
+
+  const sendTheMail = await queue.add('sendEmail', jobData, {
+    attempts: 5,
+    backoff: 10000,
+    removeOnComplete: true,
   });
-  console.log('sendTheMail', sendTheMail);
+
+  console.log('sendTheMail', await sendTheMail);
 
   return sendTheMail;
 };
@@ -496,6 +529,11 @@ const forgotPasswordService = async (email: string): Promise<object> => {
 
   if (!userFound) {
     throw new Error(`User with email ${email} not found`);
+  }
+  if (userFound.is_verified === false) {
+    throw new Error(
+      'You need to verify your email address before you can use this service'
+    );
   }
 
   // check if the user has a saved token that has not expired
@@ -584,11 +622,18 @@ const forgotPasswordService = async (email: string): Promise<object> => {
     }
   }
 
-  // send the mail using the first name, email and link
-  const sendPasswordResetLink = await sendPasswordReset({
-    first_name: userFound.first_name,
+  const jobData = {
     email: userFound.email,
+    first_name: userFound.first_name,
     link,
+    type: 'forgot-password',
+  };
+
+  // send the mail to queue using the first name, email, link and type
+  const sendPasswordResetLink = await queue.add('sendEmail', jobData, {
+    attempts: 5,
+    backoff: 10000,
+    removeOnComplete: true,
   });
 
   return sendPasswordResetLink;
@@ -688,7 +733,7 @@ const changePasswordService = async ({
   reqId,
   currentPassword,
   newPassword,
-}: changePasswordType): Promise<string> => {
+}: ChangePasswordType): Promise<string> => {
   if (paramId !== reqId) {
     throw new Error('You are not allowed to change this password');
   }

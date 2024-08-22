@@ -201,7 +201,6 @@ const sendSMSFunction = async ({
       to: phone_number, // Text your number
       from: '+12345678901', // From a valid Twilio number
     });
-    // .then((message) => console.log(message.sid));
     console.log(result);
   } catch (error) {
     console.log(error);

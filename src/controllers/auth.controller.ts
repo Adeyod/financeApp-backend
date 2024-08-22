@@ -1,9 +1,9 @@
 import {
-  comparePassType,
+  ComparePassType,
   PayloadForLoginInput,
   User,
 } from '../constants/types';
-import { validateField, validatePassword } from '../middlewares/validation';
+import { joiValidation } from '../middlewares/validation';
 import {
   registerUserService,
   verifyEmailService,
@@ -28,28 +28,22 @@ const registerUser = catchErrors(async (req, res) => {
     confirm_password,
   }: User = req.body;
 
-  const firstName = validateField(first_name, 'first name');
-  const userName = validateField(user_name, 'user name');
-  const lastName = validateField(last_name, 'last name');
-  const emailValue = validateField(email, 'email');
-  const phoneValue = validateField(phone_number, 'phone');
-
-  const passwordValue = validatePassword(
+  const payload = {
+    first_name,
+    user_name,
+    last_name,
+    email,
+    phone_number,
     password,
     confirm_password,
-    'registration'
-  );
+  };
+
+  const validateInputs = joiValidation(payload, 'register');
+
+  const { success, value } = validateInputs;
 
   // call a service
-  const payload = {
-    first_name: firstName,
-    user_name: userName,
-    last_name: lastName,
-    email: emailValue,
-    phone_number: phoneValue,
-    password: passwordValue,
-  };
-  const user = await registerUserService(payload);
+  const user = await registerUserService(value);
 
   // return response
   return res.status(201).json({
@@ -63,8 +57,6 @@ const registerUser = catchErrors(async (req, res) => {
 const verifyUserEmail = catchErrors(async (req, res) => {
   // get the params
   const { userId, token } = req.params;
-
-  // const user_id = parseInt(userId);
 
   // call a service
   const isVerified = await verifyEmailService(userId, token);
@@ -83,20 +75,17 @@ const loginUser = catchErrors(async (req, res) => {
 
   let loginInputValue: string = '';
 
-  if (loginInput.includes('@')) {
-    loginInputValue = validateField(loginInput, 'email');
-  } else {
-    loginInputValue = validateField(loginInput, 'user_name');
-  }
-  const passwordValue = validatePassword(password, undefined, 'login');
-
   const payload = {
-    loginInput: loginInputValue,
-    password: passwordValue,
+    loginInput,
+    password,
   };
 
+  const validateInputs = joiValidation(payload, 'login');
+
+  const { success, value } = validateInputs;
+
   //  call a service
-  const { access_token, ...others } = await loginUserService(payload);
+  const { access_token, ...others } = await loginUserService(value);
 
   // return the response
   return res
@@ -106,8 +95,8 @@ const loginUser = catchErrors(async (req, res) => {
     })
     .status(200)
     .json({
-      user: others,
       message: `${others.first_name}, your login was successful`,
+      user: others,
       success: true,
       status: 200,
     });
@@ -115,10 +104,13 @@ const loginUser = catchErrors(async (req, res) => {
 
 const resendEmailVerificationLink = catchErrors(async (req, res) => {
   const { email } = req.body;
-  const checkEmail = validateField(email, 'email');
+
+  const validateInputs = joiValidation(email, 'forgot-password');
+
+  const { success, value } = validateInputs;
 
   // call a service
-  const newEmail = await resendEmailVerificationLinkService(email);
+  const newEmail = await resendEmailVerificationLinkService(value);
 
   // return response
   return res.status(200).json({
@@ -132,10 +124,13 @@ const forgotPassword = catchErrors(async (req, res) => {
   // get email and validate it
   const { email } = req.body;
 
-  const emailValue = validateField(email, 'email');
+  // const emailValue = validateField(email, 'email');
+  const validateInputs = joiValidation(email, 'forgot-password');
+
+  const { success, value } = validateInputs;
 
   // call a service
-  const forgotPasswordResult = await forgotPasswordService(emailValue);
+  const forgotPasswordResult = await forgotPasswordService(value);
 
   // return response
   return res.status(200).json({
@@ -149,17 +144,21 @@ const resetPassword = catchErrors(async (req, res) => {
   // get user id, and token from params
   const { userId, token } = req.params;
   // get new password and confirm password from body
-  const { password, confirm_password }: comparePassType = req.body;
-  const validatedResult = await validatePassword(
+  const { password, confirm_password }: ComparePassType = req.body;
+
+  const inputContent = {
     password,
     confirm_password,
-    'registration'
-  );
+  };
+
+  const validateInputs = joiValidation(inputContent, 'reset-password');
+
+  const { success, value } = validateInputs;
 
   const payload = {
     user_id: userId,
     token: token,
-    password: validatedResult,
+    password: value.password,
   };
 
   // call a service
@@ -178,11 +177,15 @@ const changePassword = catchErrors(async (req, res) => {
   const user = req.user;
 
   const { currentPassword, newPassword, confirmNewPassword } = await req.body;
-  const validPassword = validatePassword(
-    newPassword,
-    confirmNewPassword,
-    'registration'
-  );
+
+  const inputContent = {
+    password: newPassword,
+    confirm_password: confirmNewPassword,
+  };
+
+  const validateInputs = joiValidation(inputContent, 'reset-password');
+
+  const { success, value } = validateInputs;
 
   if (!user) {
     throw new Error('User not authenticated');
@@ -192,7 +195,7 @@ const changePassword = catchErrors(async (req, res) => {
     paramId: user_id,
     reqId: user.userId,
     currentPassword,
-    newPassword,
+    newPassword: value.password,
   });
 
   return res.status(200).json({

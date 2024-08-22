@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { errorHandler } from './middlewares/errorHandler';
 import authRoutes from './routes/auth.route';
 import userRoutes from './routes/user.route';
+import { router } from './utils/queue';
 
 dotenv.config();
 const app = express();
@@ -24,8 +25,10 @@ app.use(cookieParser());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/admin/queues', router);
 app.use(errorHandler);
 
 app.listen(port, () => {
+  console.log(`Bull Board is running at http://localhost:${port}/admin/queues`);
   console.log(`Server listening on port ${port}`);
 });

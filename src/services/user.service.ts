@@ -1,10 +1,11 @@
-import { findUserByIdFunction } from '../middlewares/functions';
+import { findUserById } from '../repository/user.repository';
+import { AppError } from '../utils/app.error';
 
-const getUserProfileService = async (user_id: string) => {
-  const userDetails = await findUserByIdFunction(user_id);
+const getUserProfileByIdService = async (user_id: string) => {
+  const userDetails = await findUserById(user_id);
   const user = userDetails[0];
   if (!user) {
-    throw new Error('User not found');
+    throw new AppError('User not found', 404);
   }
 
   const { password, ...others } = user;
@@ -14,4 +15,4 @@ const getUserProfileService = async (user_id: string) => {
   return others;
 };
 
-export { getUserProfileService };
+export { getUserProfileByIdService };

@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { errorHandler } from './middlewares/errorHandler';
 import authRoutes from './routes/auth.route';
 import userRoutes from './routes/user.route';
+import accountRoutes from './routes/account.route';
 import { router } from './utils/queue';
 
 dotenv.config();
@@ -25,6 +26,7 @@ app.use(cookieParser());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/accounts', accountRoutes);
 app.use('/admin/queues', router);
 app.use(errorHandler);
 

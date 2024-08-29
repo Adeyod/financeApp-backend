@@ -5,7 +5,6 @@ export async function up(knex: Knex): Promise<void> {
     table.string('status').defaultTo('active').notNullable().alter();
   });
 
-  // Update existing NULL values
   await knex('users').whereNull('status').update({ status: 'active' });
 }
 

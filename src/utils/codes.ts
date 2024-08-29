@@ -1,14 +1,8 @@
-import catchError from '../utils/tryCatch';
-
-type Values = {
-  first_name: string;
-  last_name: string;
-  num: number;
-};
+import { GenerateCodeType } from '../constants/types';
 
 const generateRandomCode = (num: number) => {
   if (num < 1) {
-    throw new Error('Number of digits must be atleast 1');
+    throw new Error('Number of digits must be at least 1');
   }
 
   const min = Math.pow(10, num - 1);
@@ -21,9 +15,8 @@ const generateRandomCode = (num: number) => {
 const generateCode = async ({
   first_name,
   last_name,
-
   num,
-}: Values): Promise<string> => {
+}: GenerateCodeType): Promise<string> => {
   let code;
 
   const firstValue = first_name.charAt(0);

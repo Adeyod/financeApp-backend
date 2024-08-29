@@ -19,11 +19,9 @@ router.post('/resend-email-verification', resendEmailVerificationLink);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:userId/:token', resetPassword);
 router.get('/email-verification/:userId/:token', verifyUserEmail);
-router.get(
-  '/phone-verification-code/:user_id',
-  verifyAccessToken,
-  sendPhoneVerificationCode
-);
-router.post('/change-password/:user_id', verifyAccessToken, changePassword);
+
+router.use(verifyAccessToken);
+router.get('/phone-verification-code', sendPhoneVerificationCode);
+router.post('/change-password', changePassword);
 
 export default router;

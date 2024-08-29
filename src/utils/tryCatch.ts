@@ -1,6 +1,6 @@
 import { AsyncHandler } from '../constants/types';
 
-const catchError =
+const catchErrors =
   (controller: AsyncHandler): AsyncHandler =>
   async (req, res, next) => {
     try {
@@ -10,4 +10,4 @@ const catchError =
     }
   };
 
-export default catchError;
+export default catchErrors;

@@ -32,34 +32,43 @@ const sendEmailVerification = async ({
   first_name,
   link,
 }: EmailType) => {
-  const emailVerificationContent = getMailTemplate('emailTemplate.ejs', {
-    first_name,
-    link,
-  });
-  const info = await transporter.sendMail({
-    from: process.env.NODEMAILER_USER,
-    to: email,
-    subject: 'Email verification',
-    html: emailVerificationContent,
-  });
+  try {
+    const emailVerificationContent = getMailTemplate('emailTemplate.ejs', {
+      first_name,
+      link,
+    });
+    const info = await transporter.sendMail({
+      from: process.env.NODEMAILER_USER,
+      to: email,
+      subject: 'Email verification',
+      html: emailVerificationContent,
+    });
 
-  return info;
+    return info;
+  } catch (error: any) {
+    console.log(error);
+    throw new Error(error.message);
+  }
 };
 
 const sendPasswordReset = async ({ first_name, email, link }: EmailType) => {
-  const passwordResetContent = getMailTemplate('resetPasswordTemplate.ejs', {
-    first_name,
-    link,
-  });
+  try {
+    const passwordResetContent = getMailTemplate('resetPasswordTemplate.ejs', {
+      first_name,
+      link,
+    });
 
-  const info = await transporter.sendMail({
-    from: process.env.NODEMAILER_USER,
-    to: email,
-    subject: 'Password reset',
-    html: passwordResetContent,
-  });
+    const info = await transporter.sendMail({
+      from: process.env.NODEMAILER_USER,
+      to: email,
+      subject: 'Password reset',
+      html: passwordResetContent,
+    });
 
-  return info;
+    return info;
+  } catch (error: any) {
+    throw new Error(error.message);
+  }
 };
 
 export { sendEmailVerification, sendPasswordReset };

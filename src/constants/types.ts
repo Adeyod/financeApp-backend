@@ -1,11 +1,16 @@
 import { NextFunction, Request, Response } from 'express';
 
-// export type
 type UserInJwt = {
   userId: string;
   userEmail: string;
   iat: number;
   exp: number;
+};
+
+type GenerateCodeType = {
+  first_name: string;
+  last_name: string;
+  num: number;
 };
 
 declare global {
@@ -132,7 +137,6 @@ type SmsType = {
 };
 
 type ChangePasswordType = {
-  paramId: string;
   reqId: string;
   currentPassword: string;
   newPassword: string;
@@ -174,4 +178,5 @@ export {
   ResetPasswordDocument,
   ComparePassType,
   User,
+  GenerateCodeType,
 };

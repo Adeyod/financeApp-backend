@@ -8,30 +8,33 @@ import {
   LoginParams,
   UserWithAccountType,
   ChangePasswordType,
-  EmailJobData,
 } from '../constants/types';
-import { generateCode, generateRandomCode } from '../middlewares/codes';
+import { generateCode, generateRandomCode } from '../utils/codes';
 import { VerificationCodeType } from '../constants/enumTypes';
 import { TokenExpiration, encodeExpiresAt } from '../utils/dates';
 import { FRONTEND_URL } from '../constants/env';
-import { sendEmailVerification, sendPasswordReset } from '../utils/nodemailer';
 import { generateAccessToken } from '../middlewares/jwtAuth';
-import {
-  createVerificationCodeFunction,
-  deleteTokenFunction,
-  findTokenFunction,
-  findUserByEmailFunction,
-  findUserByIdFunction,
-  findUserByUsername,
-  generateAccountNumberFunction,
-  registerNewUserFunction,
-  saveAccountNumberFunction,
-  sendSMSFunction,
-  updateUserPasswordFunction,
-  updateUserVerificationFunction,
-} from '../middlewares/functions';
-import { changePassword } from '../controllers/auth.controller';
+
 import { queue } from '../utils/queue';
+import {
+  findUserByEmail,
+  findUserById,
+  findUserByUsername,
+  registerNewUser,
+  sendSMS,
+  updateUserPassword,
+  updateUserVerification,
+} from '../repository/user.repository';
+import {
+  generateAccountNumber,
+  saveAccountNumber,
+} from '../repository/account.repository';
+import {
+  createVerificationCode,
+  deleteToken,
+  findToken,
+} from '../repository/verification.repository';
+import { AppError } from '../utils/app.error';
 
 const verifyNum = 15;
 const expireAt = TokenExpiration(30);
@@ -45,24 +48,24 @@ const registerUserService = async (
   const { first_name, last_name, email, phone_number, password, user_name } =
     payload;
 
-  const existingUserResult = await findUserByEmailFunction(email);
+  const existingUserResult = await findUserByEmail(email);
 
   const existingUser = existingUserResult[0];
 
   if (existingUser) {
-    throw new Error('User with this email already exist');
+    throw new AppError('User with this email already exist', 409);
   }
 
   const userNameExist = await findUserByUsername(user_name);
   const existingUserName = userNameExist[0];
 
   if (existingUserName) {
-    throw new Error('User with this username already exist');
+    throw new AppError('User with this username already exist', 409);
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  const newUserResult = await registerNewUserFunction({
+  const newUserResult = await registerNewUser({
     first_name,
     last_name,
     email,
@@ -80,15 +83,13 @@ const registerUserService = async (
 
   const { password: _password, ...others } = newUser;
 
-  // generate token
   const token = await generateCode({
     first_name: others.first_name,
     last_name: others.last_name,
     num: verifyNum,
   });
 
-  // save token and user inside database
-  const newVerificationCodeResult = await createVerificationCodeFunction({
+  const newVerificationCodeResult = await createVerificationCode({
     token,
     user_id: others.id,
     purpose: VerificationCodeType.EmailVerification,
@@ -117,7 +118,6 @@ const registerUserService = async (
     type: 'email-verification',
   };
 
-  // send email verification link to the new user here
   const mailSent = await queue.add('sendEmail', jobData, {
     attempts: 5,
     backoff: 10000,
@@ -126,12 +126,11 @@ const registerUserService = async (
 
   console.log('mailSent: ' + mailSent);
 
-  // create the default account number here and make sure it's unique
-  const accountNumber = await generateAccountNumberFunction();
+  const accountNumber = await generateAccountNumber();
 
   const accountString = JSON.stringify(accountNumber);
 
-  const userNewAccountSaved = await saveAccountNumberFunction({
+  const userNewAccountSaved = await saveAccountNumber({
     user_id: others.id,
     accountNumber: accountString,
   });
@@ -150,9 +149,7 @@ const verifyEmailService = async (
   userId: string,
   token: string
 ): Promise<UserDocument> => {
-  // check if the token and user_id exist inside the verification_code table
-
-  const verificationResult = await findTokenFunction({
+  const verificationResult = await findToken({
     user_id: userId,
     token,
     purpose: VerificationCodeType.EmailVerification,
@@ -161,7 +158,7 @@ const verifyEmailService = async (
   const verificationDetails = verificationResult[0];
 
   if (!verificationDetails) {
-    throw new Error('No verification code found');
+    throw new AppError('No verification code found', 404);
   }
 
   const {
@@ -179,25 +176,24 @@ const verifyEmailService = async (
   console.log('currentTime', currentTime);
 
   if (currentTime > expiresAt) {
-    await deleteTokenFunction({
+    await deleteToken({
       user_id,
       purpose: VerificationCodeType.EmailVerification,
       id,
     });
-    throw new Error('Verification link has expired. Please request a new one');
+    throw new AppError(
+      'Verification link has expired. Please request a new one',
+      401
+    );
   }
 
-  // update the user verification status
-
-  const updateResult = await updateUserVerificationFunction(user_id);
+  const updateResult = await updateUserVerification(user_id);
   const updateUser = updateResult[0];
 
   if (!updateUser) {
     throw new Error('Unable to set is_verified for this user');
   } else {
-    // delete verification code from the database
-
-    const deletedData = await deleteTokenFunction({
+    const deletedData = await deleteToken({
       user_id,
       purpose: VerificationCodeType.EmailVerification,
       id,
@@ -219,7 +215,7 @@ const loginUserService = async (
   let getUserResult: UserDocument[];
 
   if (loginInput.includes('@')) {
-    getUserResult = await findUserByEmailFunction(loginInput);
+    getUserResult = await findUserByEmail(loginInput);
   } else {
     getUserResult = await findUserByUsername(loginInput);
   }
@@ -227,24 +223,19 @@ const loginUserService = async (
   const user = getUserResult[0];
 
   if (!user) {
-    throw new Error('Invalid credentials');
+    throw new AppError('Invalid credentials', 401);
   }
 
-  // compare password with saved password
   const validatePassword = await bcrypt.compare(password, user.password);
   if (!validatePassword) {
-    throw new Error('Invalid credentials');
+    throw new AppError('Invalid credentials', 401);
   }
 
-  // check if the user is verified
   if (!user.is_verified) {
-    //  we either have a token or we don't have
-
     let token;
     let link;
 
-    // check if there is a token not expired
-    const activeTokenResult = await findTokenFunction({
+    const activeTokenResult = await findToken({
       user_id: user.id,
       purpose: VerificationCodeType.EmailVerification,
     });
@@ -252,14 +243,13 @@ const loginUserService = async (
     const activeToken = activeTokenResult[0];
 
     if (!activeToken) {
-      // meaning there is no active token, create the token, save to database, make a link and send to user
       token = await generateCode({
         first_name: user.first_name,
         last_name: user.last_name,
         num: verifyNum,
       });
 
-      const verificationTokenResult = await createVerificationCodeFunction({
+      const verificationTokenResult = await createVerificationCode({
         token,
         user_id: user.id,
         purpose: VerificationCodeType.EmailVerification,
@@ -276,7 +266,6 @@ const loginUserService = async (
 
       const encodedExpiresAt = encodeExpiresAt(expires_at);
 
-      // send email verification link to the new user here
       link = `${FRONTEND_URL}/auth/email-verification/${user.id}/${tokenDetails}`;
       //  link = `${FRONTEND_URL}/email-verification?userId=${user.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
 
@@ -287,7 +276,6 @@ const loginUserService = async (
         type: 'email-verification',
       };
 
-      // link email and first name
       const mailSent = await queue.add('sendEmail', jobData, {
         attempts: 5,
         backoff: 10000,
@@ -296,20 +284,16 @@ const loginUserService = async (
 
       console.log('sending email login part 1:', mailSent);
 
-      throw new Error('Please check your email to verify your account');
+      throw new AppError('Please check your email to verify your account', 403);
     } else {
-      // there is active token, then make a link out of it and send to the user
       const { user_id, expires_at } = activeToken;
-      console.log('i am running here where there is active token');
 
-      // check if expires_at is has not expired
       const currentTime = Date.now();
 
       const checkExpires = convertExpireDateToNumber(expires_at);
       console.log(checkExpires);
       if (currentTime > checkExpires) {
-        // delete the token, generate a new token and send to the user
-        const deleteExpiredToken = await deleteTokenFunction({
+        const deleteExpiredToken = await deleteToken({
           user_id,
           purpose: VerificationCodeType.EmailVerification,
           id: activeToken.id,
@@ -321,7 +305,7 @@ const loginUserService = async (
           num: verifyNum,
         });
 
-        const verificationTokenResult = await createVerificationCodeFunction({
+        const verificationTokenResult = await createVerificationCode({
           token,
           user_id: user.id,
           purpose: VerificationCodeType.EmailVerification,
@@ -338,7 +322,6 @@ const loginUserService = async (
 
         const encodedExpiresAt = encodeExpiresAt(expires_at);
 
-        // send email verification link to the new user here
         link = `${FRONTEND_URL}/auth/email-verification/${user.id}/${tokenDetails}`;
         //  link = `${FRONTEND_URL}/email-verification?userId=${user.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
 
@@ -349,7 +332,6 @@ const loginUserService = async (
           type: 'email-verification',
         };
 
-        // sending email verification to the queue
         const mailSent = await queue.add('sendEmail', jobData, {
           attempts: 5,
           backoff: 10000,
@@ -358,7 +340,10 @@ const loginUserService = async (
 
         console.log('sending email login part 2:', mailSent);
 
-        throw new Error('Please check your email to verify your account');
+        throw new AppError(
+          'Please check your email to verify your account',
+          403
+        );
       } else {
         const encodedExpiresAt = encodeExpiresAt(expires_at);
 
@@ -372,16 +357,16 @@ const loginUserService = async (
           type: 'email-verification',
         };
 
-        //  sending email verification to the queue
         const mailSent = await queue.add('sendEmail', jobData, {
           attempts: 5,
           backoff: 10000,
           removeOnComplete: true,
         });
 
-        console.log('sending email login part 3:', mailSent);
-
-        throw new Error('Please check your email to verify your account');
+        throw new AppError(
+          'Please check your email to verify your account',
+          403
+        );
       }
     }
   }
@@ -401,24 +386,21 @@ const loginUserService = async (
 const resendEmailVerificationLinkService = async (
   email: string
 ): Promise<object> => {
-  // find user by email
-  const userQueryResult = await findUserByEmailFunction(email);
+  const userQueryResult = await findUserByEmail(email);
 
   const user = userQueryResult[0];
 
   if (!user) {
-    throw new Error(`User with email: ${email} not found`);
+    throw new AppError(`User with email: ${email} not found`, 404);
   }
 
   if (user.is_verified) {
-    throw new Error('User already verified');
+    throw new AppError('User already verified', 409);
   }
 
   let link: string = '';
 
-  // if found, use the user.id and purpose to find token and also check if it is still active
-
-  const savedTokenQueryResult = await findTokenFunction({
+  const savedTokenQueryResult = await findToken({
     user_id: user.id,
     token: undefined,
     purpose: VerificationCodeType.EmailVerification,
@@ -430,14 +412,13 @@ const resendEmailVerificationLinkService = async (
   const currentTime = Date.now();
 
   if (!savedToken) {
-    // generate a new token
     let token = await generateCode({
       first_name: user.first_name,
       last_name: user.last_name,
       num: verifyNum,
     });
 
-    const saveTokenResult = await createVerificationCodeFunction({
+    const saveTokenResult = await createVerificationCode({
       token,
       user_id: user.id,
       purpose: VerificationCodeType.EmailVerification,
@@ -454,13 +435,10 @@ const resendEmailVerificationLinkService = async (
     const encodedExpiresAt = encodeExpiresAt(saveToken.expires_at);
     console.log('Newly encodedExpiresAt', encodedExpiresAt);
 
-    // send email verification link to the new user here
     link = `${FRONTEND_URL}/auth/email-verification/${saveToken.user_id}/${saveToken.token}`;
     // const link = `${FRONTEND_URL}/email-verification?userId=${saveToken.user_id}&token=${saveToken.token}&expires_at=${encodedExpiresAt}`;
-
-    // link email and first name
   } else if (currentTime > convertExpireDateToNumber(savedToken.expires_at)) {
-    const deleteTokenResult = await deleteTokenFunction({
+    const deleteTokenResult = await deleteToken({
       user_id: user.id,
       purpose: VerificationCodeType.EmailVerification,
       id: savedToken.id,
@@ -472,7 +450,7 @@ const resendEmailVerificationLinkService = async (
       num: verifyNum,
     });
 
-    const saveTokenResult = await createVerificationCodeFunction({
+    const saveTokenResult = await createVerificationCode({
       token,
       user_id: user.id,
       purpose: VerificationCodeType.EmailVerification,
@@ -488,13 +466,11 @@ const resendEmailVerificationLinkService = async (
     const encodedExpiresAt = encodeExpiresAt(saveToken.expires_at);
     console.log('Time check encodedExpiresAt', encodedExpiresAt);
 
-    // send email verification link to the new user here
     link = `${FRONTEND_URL}/auth/email-verification/${saveToken.user_id}/${saveToken.token}`;
     // const link = `${FRONTEND_URL}/email-verification?userId=${saveToken.user_id}&token=${saveToken.token}&expires_at=${encodedExpiresAt}`;
   } else if (savedToken) {
     const { token, user_id, expires_at } = savedToken;
     const encodedExpiresAt = encodeExpiresAt(expires_at);
-    console.log('I found token that has not expired and using it');
 
     link = `${FRONTEND_URL}/auth/email-verification/${user_id}/${token}`;
     // const link = `${FRONTEND_URL}/email-verification?userId=${user_id}&token=${token}&expires_at=${encodedExpiresAt}`;
@@ -513,32 +489,27 @@ const resendEmailVerificationLinkService = async (
     removeOnComplete: true,
   });
 
-  console.log('sendTheMail', await sendTheMail);
-
   return sendTheMail;
 };
 
 const forgotPasswordService = async (email: string): Promise<object> => {
-  // check if the user with that email exists
-
-  const findUserResult = await findUserByEmailFunction(email);
+  const findUserResult = await findUserByEmail(email);
 
   const userFound = findUserResult[0];
 
   let link: string = '';
 
   if (!userFound) {
-    throw new Error(`User with email ${email} not found`);
+    throw new AppError(`User with email ${email} not found`, 404);
   }
   if (userFound.is_verified === false) {
-    throw new Error(
-      'You need to verify your email address before you can use this service'
+    throw new AppError(
+      'You need to verify your email address before you can use this service',
+      403
     );
   }
 
-  // check if the user has a saved token that has not expired
-
-  const findTokenResult = await findTokenFunction({
+  const findTokenResult = await findToken({
     user_id: userFound.id,
     purpose: VerificationCodeType.PasswordReset,
   });
@@ -552,9 +523,7 @@ const forgotPasswordService = async (email: string): Promise<object> => {
   });
 
   if (!tokenFound) {
-    // generate token, save to database, generate link using the new token and user id
-
-    const saveTokenResult = await createVerificationCodeFunction({
+    const saveTokenResult = await createVerificationCode({
       token,
       user_id: userFound.id,
       purpose: VerificationCodeType.PasswordReset,
@@ -574,15 +543,11 @@ const forgotPasswordService = async (email: string): Promise<object> => {
     link = `${FRONTEND_URL}/auth/reset-password/${user_id}/${tokenValue}`;
     // link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${tokenValue}&expiresAt=${encodedExpiresAt}`
   } else if (tokenFound) {
-    // check if it has expired and generate a new token
-
     const currentTime = Date.now();
     const expiresAt = convertExpireDateToNumber(tokenFound.expires_at);
 
     if (currentTime > expiresAt) {
-      // delete expired token, generate new token and save it
-
-      const deleteTokenResult = await deleteTokenFunction({
+      const deleteTokenResult = await deleteToken({
         user_id: userFound.id,
         purpose: VerificationCodeType.PasswordReset,
         id: tokenFound.id,
@@ -593,7 +558,7 @@ const forgotPasswordService = async (email: string): Promise<object> => {
         throw new Error('Unable to delete token');
       }
 
-      const saveTokenResult = await createVerificationCodeFunction({
+      const saveTokenResult = await createVerificationCode({
         token,
         user_id: userFound.id,
         purpose: VerificationCodeType.PasswordReset,
@@ -629,7 +594,6 @@ const forgotPasswordService = async (email: string): Promise<object> => {
     type: 'forgot-password',
   };
 
-  // send the mail to queue using the first name, email, link and type
   const sendPasswordResetLink = await queue.add('sendEmail', jobData, {
     attempts: 5,
     backoff: 10000,
@@ -644,9 +608,7 @@ const resetPasswordService = async (
 ): Promise<string> => {
   const { user_id, token, password } = payload;
 
-  // find verification code using the user id, token, and purpose
-
-  const findCodeResult = await findTokenFunction({
+  const findCodeResult = await findToken({
     user_id,
     token,
     purpose: VerificationCodeType.PasswordReset,
@@ -654,104 +616,65 @@ const resetPasswordService = async (
 
   const findCode = findCodeResult[0];
   if (!findCode) {
-    throw new Error('Invalid verification code');
+    throw new AppError('Invalid verification code', 400);
   }
 
-  // if found, check if it has not expired
   const currentTime = Date.now();
   const expiresAt = convertExpireDateToNumber(findCode.expires_at);
 
   if (currentTime > expiresAt) {
-    // if expires, delete the code and throw an error
-    const deleteCodeResult = await deleteTokenFunction({
+    const deleteCodeResult = await deleteToken({
       user_id,
       purpose: VerificationCodeType.PasswordReset,
       id: findCode.id,
     });
 
-    throw new Error(
-      `This code has expired. Please request for a new password reset link to continue. ${deleteCodeResult}`
+    throw new AppError(
+      `This code has expired. Please request for a new password reset link to continue. ${deleteCodeResult}`,
+      410
     );
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  const updateUserPasswordResult = await updateUserPasswordFunction({
+  const result = await updateUserPassword({
     user_id: findCode.user_id,
     password: hashedPassword,
   });
 
-  const updateUserPassword = updateUserPasswordResult[0];
-  if (!updateUserPassword) {
+  const updateUserPasswordResult = result[0];
+  if (!updateUserPasswordResult) {
     throw new Error('Unable to update user password');
   }
 
-  const deleteCodeResult = await deleteTokenFunction({
+  const deleteCodeResult = await deleteToken({
     user_id: findCode.user_id,
     purpose: VerificationCodeType.PasswordReset,
     id: findCode.id,
   });
 
-  return `${updateUserPassword.first_name}, your password has been updated successfully. Please login to your account with the new password.`;
-};
-
-const sendPhoneVerificationCodeService = async (
-  user_id: string,
-  userId: string
-) => {
-  console.log(userId);
-  console.log(user_id);
-
-  if (user_id !== userId) {
-    throw new Error('You can do phone verification only for your account');
-  }
-
-  // get the user details from the database
-  // generate 6 digit pin and send to the phone number of the user
-  // set expires to 10mins
-  const findUserByIdResult = await findUserByIdFunction(user_id);
-  const userDetails = findUserByIdResult[0];
-
-  if (userDetails.is_phone_verified) {
-    throw new Error('Phone number already verified');
-  }
-
-  const phoneCode = generateRandomCode(6);
-
-  const smsResult = await sendSMSFunction({
-    code: phoneCode,
-    phone_number: userDetails.phone_number,
-  });
-
-  console.log(smsResult);
-
-  return;
+  return `${updateUserPasswordResult.first_name}, your password has been updated successfully. Please login to your account with the new password.`;
 };
 
 const changePasswordService = async ({
-  paramId,
   reqId,
   currentPassword,
   newPassword,
 }: ChangePasswordType): Promise<string> => {
-  if (paramId !== reqId) {
-    throw new Error('You are not allowed to change this password');
-  }
-
-  const userDetails = await findUserByIdFunction(paramId);
+  const userDetails = await findUserById(reqId);
   const user = userDetails[0];
   if (!user) {
-    throw new Error('User does not exist');
+    throw new AppError('User does not exist', 404);
   }
 
   const passwordCompare = await bcrypt.compare(currentPassword, user.password);
   if (!passwordCompare) {
-    throw new Error('Invalid credentials');
+    throw new AppError('Invalid credentials', 401);
   }
 
   const hashPassword = await bcrypt.hash(newPassword, 10);
 
-  const updatePassword = await updateUserPasswordFunction({
+  const updatePassword = await updateUserPassword({
     user_id: user.id,
     password: hashPassword,
   });
@@ -761,6 +684,31 @@ const changePasswordService = async ({
   }
 
   return user.first_name;
+};
+
+const sendPhoneVerificationCodeService = async (
+  user_id: string,
+  userId: string
+) => {
+  if (user_id !== userId) {
+    throw new Error('You can do phone verification only for your account');
+  }
+
+  const findUserByIdResult = await findUserById(user_id);
+  const userDetails = findUserByIdResult[0];
+
+  if (userDetails.is_phone_verified) {
+    throw new Error('Phone number already verified');
+  }
+
+  const phoneCode = generateRandomCode(6);
+
+  const smsResult = await sendSMS({
+    code: phoneCode,
+    phone_number: userDetails.phone_number,
+  });
+
+  return;
 };
 
 export {

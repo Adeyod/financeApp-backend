@@ -1,8 +1,8 @@
 import { AccountCreatedDetailsType } from '../constants/types';
 import {
-  getAllUserAccountsByUserIdService,
-  getSingleUserAccountByUserIdAndIdService,
-  createNewAccountService,
+  getAllUserAccountsUserId,
+  createNewUserAccount,
+  getSingleUserAccountUserIdAndId,
 } from '../services/account.service';
 import { AppError } from '../utils/app.error';
 import catchErrors from '../utils/tryCatch';
@@ -16,7 +16,7 @@ const getAllUserAccountsByUserId = catchErrors(async (req, res) => {
     throw new AppError('Unable to authenticate user', 401);
   }
 
-  const userAccounts = await getAllUserAccountsByUserIdService(user.userId);
+  const userAccounts = await getAllUserAccountsUserId(user.userId);
 
   console.log(userAccounts);
 
@@ -34,7 +34,7 @@ const getSingleUserAccountByUserIdAndId = catchErrors(async (req, res) => {
     throw new AppError('Unable to authenticate user', 401);
   }
 
-  const userAccount = await getSingleUserAccountByUserIdAndIdService(
+  const userAccount = await getSingleUserAccountUserIdAndId(
     user.userId,
     account_id
   );
@@ -53,7 +53,7 @@ const createNewAccount = catchErrors(async (req, res) => {
 
   console.log(user.userId);
 
-  const createAccount = await createNewAccountService(user.userId);
+  const createAccount = await createNewUserAccount(user.userId);
 
   return res.json({
     newAccount: createAccount,

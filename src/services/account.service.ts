@@ -8,7 +8,7 @@ import {
 } from '../repository/user.repository';
 import { AppError } from '../utils/app.error';
 
-const getAllUserAccountsByUserIdService = async (user_id: string) => {
+const getAllUserAccountsUserId = async (user_id: string) => {
   const getAllUserAccount = await getAllUserAccountsById(user_id);
   if (!getAllUserAccount) {
     throw new AppError('Unable to get account numbers for this user', 404);
@@ -16,7 +16,7 @@ const getAllUserAccountsByUserIdService = async (user_id: string) => {
   return getAllUserAccount;
 };
 
-const getSingleUserAccountByUserIdAndIdService = async (
+const getSingleUserAccountUserIdAndId = async (
   user_id: string,
   account_id: string
 ) => {
@@ -30,7 +30,7 @@ const getSingleUserAccountByUserIdAndIdService = async (
   return getSingleUserAccount;
 };
 
-const createNewAccountService = async (user_id: string) => {
+const createNewUserAccount = async (user_id: string) => {
   const accountNumber = await generateAccountNumber();
 
   const accountString = JSON.stringify(accountNumber);
@@ -48,7 +48,7 @@ const createNewAccountService = async (user_id: string) => {
 };
 
 export {
-  createNewAccountService,
-  getAllUserAccountsByUserIdService,
-  getSingleUserAccountByUserIdAndIdService,
+  createNewUserAccount,
+  getAllUserAccountsUserId,
+  getSingleUserAccountUserIdAndId,
 };

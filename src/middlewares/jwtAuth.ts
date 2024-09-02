@@ -14,7 +14,7 @@ const generateAccessToken = async (userId: string, userEmail: string) => {
     };
 
     const token = await jwt.sign(payload, JWT_SECRET, {
-      expiresIn: '1',
+      expiresIn: '15days',
     });
 
     return token;
@@ -30,8 +30,7 @@ const verifyAccessToken = async (
 ): Promise<any> => {
   try {
     const access_token = await req.cookies.access_token;
-    console.log(access_token);
-    if (!access_token || access_token === undefined || access_token === null) {
+    if (!access_token) {
       throw new AppError('Please login to continue', 401);
     }
 

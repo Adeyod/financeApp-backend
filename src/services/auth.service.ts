@@ -20,7 +20,7 @@ import {
   findUserByEmail,
   findUserById,
   findUserByUsername,
-  registerNewUser,
+  newUserRegistration,
   sendSMS,
   updateUserPassword,
   updateUserVerification,
@@ -42,7 +42,7 @@ const convertExpireDateToNumber = (dateString: string): number => {
   return new Date(dateString).getTime();
 };
 
-const registerUserService = async (
+const registerNewUser = async (
   payload: Payload
 ): Promise<UserWithAccountType> => {
   const { first_name, last_name, email, phone_number, password, user_name } =
@@ -65,7 +65,7 @@ const registerUserService = async (
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  const newUserResult = await registerNewUser({
+  const newUserResult = await newUserRegistration({
     first_name,
     last_name,
     email,
@@ -145,7 +145,7 @@ const registerUserService = async (
   return dataToSend;
 };
 
-const verifyEmailService = async (
+const verifyEmail = async (
   userId: string,
   token: string
 ): Promise<UserDocument> => {
@@ -207,22 +207,22 @@ const verifyEmailService = async (
   }
 };
 
-const loginUserService = async (
+const logUserIn = async (
   payload: PayloadForLoginInput
 ): Promise<LoginParams> => {
-  const { loginInput, password } = payload;
+  const { login_input, password } = payload;
 
   let getUserResult: UserDocument[];
 
-  if (loginInput.includes('@')) {
-    getUserResult = await findUserByEmail(loginInput);
+  if (login_input.includes('@')) {
+    getUserResult = await findUserByEmail(login_input);
   } else {
-    getUserResult = await findUserByUsername(loginInput);
+    getUserResult = await findUserByUsername(login_input);
   }
 
   const user = getUserResult[0];
 
-  if (!user) {
+  if (!user || user === undefined) {
     throw new AppError('Invalid credentials', 401);
   }
 
@@ -347,7 +347,7 @@ const loginUserService = async (
       } else {
         const encodedExpiresAt = encodeExpiresAt(expires_at);
 
-        link = `${FRONTEND_URL}/auth/email-verification/${user_id}/${token}`;
+        link = `${FRONTEND_URL}/auth/email-verification/${user_id}/${activeToken.token}`;
         //  link = `${FRONTEND_URL}/email-verification?userId=${user_id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
 
         const jobData = {
@@ -383,9 +383,7 @@ const loginUserService = async (
   return user_access as LoginParams;
 };
 
-const resendEmailVerificationLinkService = async (
-  email: string
-): Promise<object> => {
+const sendEmailVerificationAgain = async (email: string): Promise<object> => {
   const userQueryResult = await findUserByEmail(email);
 
   const user = userQueryResult[0];
@@ -492,7 +490,7 @@ const resendEmailVerificationLinkService = async (
   return sendTheMail;
 };
 
-const forgotPasswordService = async (email: string): Promise<object> => {
+const forgotPass = async (email: string): Promise<object> => {
   const findUserResult = await findUserByEmail(email);
 
   const userFound = findUserResult[0];
@@ -603,7 +601,7 @@ const forgotPasswordService = async (email: string): Promise<object> => {
   return sendPasswordResetLink;
 };
 
-const resetPasswordService = async (
+const passwordReset = async (
   payload: ResetPasswordDocument
 ): Promise<string> => {
   const { user_id, token, password } = payload;
@@ -656,7 +654,7 @@ const resetPasswordService = async (
   return `${updateUserPasswordResult.first_name}, your password has been updated successfully. Please login to your account with the new password.`;
 };
 
-const changePasswordService = async ({
+const passwordChange = async ({
   reqId,
   currentPassword,
   newPassword,
@@ -686,10 +684,7 @@ const changePasswordService = async ({
   return user.first_name;
 };
 
-const sendPhoneVerificationCodeService = async (
-  user_id: string,
-  userId: string
-) => {
+const sendPhoneVerificationPin = async (user_id: string, userId: string) => {
   if (user_id !== userId) {
     throw new Error('You can do phone verification only for your account');
   }
@@ -712,14 +707,14 @@ const sendPhoneVerificationCodeService = async (
 };
 
 export {
-  changePasswordService,
-  sendPhoneVerificationCodeService,
-  resetPasswordService,
-  forgotPasswordService,
-  registerUserService,
-  verifyEmailService,
-  loginUserService,
-  resendEmailVerificationLinkService,
+  logUserIn,
+  sendEmailVerificationAgain,
+  forgotPass,
+  passwordReset,
+  registerNewUser,
+  verifyEmail,
+  sendPhoneVerificationPin,
+  passwordChange,
 };
 
 /**

@@ -68,7 +68,7 @@ type Payload = {
 };
 
 type PayloadForLoginInput = {
-  loginInput: string;
+  login_input: string;
   password: string;
 };
 

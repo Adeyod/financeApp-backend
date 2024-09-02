@@ -5,14 +5,14 @@ import {
 } from '../constants/types';
 import { joiValidation } from '../utils/validation';
 import {
-  registerUserService,
-  verifyEmailService,
-  loginUserService,
-  resendEmailVerificationLinkService,
-  forgotPasswordService,
-  resetPasswordService,
-  sendPhoneVerificationCodeService,
-  changePasswordService,
+  registerNewUser,
+  verifyEmail,
+  logUserIn,
+  sendEmailVerificationAgain,
+  forgotPass,
+  passwordReset,
+  sendPhoneVerificationPin,
+  passwordChange,
 } from '../services/auth.service';
 
 import catchErrors from '../utils/tryCatch';
@@ -42,7 +42,7 @@ const registerUser = catchErrors(async (req, res) => {
 
   const { success, value } = validateInputs;
 
-  const user = await registerUserService(value);
+  const user = await registerNewUser(value);
 
   return res.status(201).json({
     message:
@@ -55,7 +55,7 @@ const registerUser = catchErrors(async (req, res) => {
 const verifyUserEmail = catchErrors(async (req, res) => {
   const { userId, token } = req.params;
 
-  const isVerified = await verifyEmailService(userId, token);
+  const isVerified = await verifyEmail(userId, token);
 
   return res.status(200).json({
     message: `${isVerified.first_name}, your email has been verified successfully. Please login to continue.`,
@@ -65,10 +65,10 @@ const verifyUserEmail = catchErrors(async (req, res) => {
 });
 
 const loginUser = catchErrors(async (req, res) => {
-  const { loginInput, password }: PayloadForLoginInput = req.body;
+  const { login_input, password }: PayloadForLoginInput = req.body;
 
   const payload = {
-    loginInput,
+    login_input,
     password,
   };
 
@@ -76,7 +76,9 @@ const loginUser = catchErrors(async (req, res) => {
 
   const { success, value } = validateInputs;
 
-  const { access_token, ...others } = await loginUserService(value);
+  const { access_token, ...others } = await logUserIn(value);
+
+  console.log(access_token);
 
   return res
     .cookie('access_token', access_token, {
@@ -99,7 +101,7 @@ const resendEmailVerificationLink = catchErrors(async (req, res) => {
 
   const { success, value } = validateInputs;
 
-  const newEmail = await resendEmailVerificationLinkService(value);
+  const newEmail = await sendEmailVerificationAgain(value);
 
   return res.status(200).json({
     message: 'Please check your email to verify your account',
@@ -115,7 +117,7 @@ const forgotPassword = catchErrors(async (req, res) => {
 
   const { success, value } = validateInputs;
 
-  const forgotPasswordResult = await forgotPasswordService(value);
+  const forgotPasswordResult = await forgotPass(value);
 
   return res.status(200).json({
     success: true,
@@ -143,7 +145,7 @@ const resetPassword = catchErrors(async (req, res) => {
     password: value.password,
   };
 
-  const resetPasswordResponse = await resetPasswordService(payload);
+  const resetPasswordResponse = await passwordReset(payload);
 
   return res.status(200).json({
     message: resetPasswordResponse,
@@ -170,7 +172,7 @@ const changePassword = catchErrors(async (req, res) => {
     throw new Error('User not authenticated');
   }
 
-  const changePasswordServiceResult = await changePasswordService({
+  const changePasswordServiceResult = await passwordChange({
     reqId: user.userId,
     currentPassword,
     newPassword: value.password,
@@ -191,10 +193,7 @@ const sendPhoneVerificationCode = catchErrors(async (req, res) => {
     throw new Error('User not authenticated');
   }
 
-  const serviceResult = await sendPhoneVerificationCodeService(
-    user_id,
-    user.userId
-  );
+  const serviceResult = await sendPhoneVerificationPin(user_id, user.userId);
 });
 
 export {

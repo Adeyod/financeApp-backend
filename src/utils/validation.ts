@@ -87,7 +87,7 @@ const joiValidation = <
 
     case 'login':
       validationSchema = Joi.object({
-        loginInput: Joi.string()
+        login_input: Joi.string()
           .required()
           .custom((value, helpers) => {
             if (Joi.string().email().validate(value).error) {

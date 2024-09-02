@@ -44,7 +44,7 @@ const findUserByUsername = async (user_name: string) => {
   return user;
 };
 
-const registerNewUser = async ({
+const newUserRegistration = async ({
   user_name,
   first_name,
   last_name,
@@ -100,18 +100,13 @@ const getSingleUserAccountsById = async (
   const userAccount = await knexConnect<AccountCreatedDetailsType>('accounts')
     .select('*')
     .where('id', account_id)
-    .andWhere('user_id', user_id);
+    .andWhere('user_id', user_id)
+    .first();
 
-  if (userAccount.length === 0) {
-    throw new AppError('No Account found for this user', 404);
-  }
-
-  const account = userAccount[0];
-
-  if (!account) {
+  if (!userAccount) {
     throw new AppError('Account not found', 404);
   }
-  return account;
+  return userAccount;
 };
 
 const sendSMS = async ({ code, phone_number }: SmsType): Promise<void> => {
@@ -139,7 +134,7 @@ export {
   findUserById,
   findUserByUsername,
   updateUserPassword,
-  registerNewUser,
+  newUserRegistration,
   findUserByEmail,
   updateUserVerification,
   sendSMS,

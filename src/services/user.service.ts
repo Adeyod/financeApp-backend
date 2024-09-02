@@ -1,7 +1,7 @@
 import { findUserById } from '../repository/user.repository';
 import { AppError } from '../utils/app.error';
 
-const getUserProfileByIdService = async (user_id: string) => {
+const getUserDetailsById = async (user_id: string) => {
   const userDetails = await findUserById(user_id);
   const user = userDetails[0];
   if (!user) {
@@ -15,4 +15,4 @@ const getUserProfileByIdService = async (user_id: string) => {
   return others;
 };
 
-export { getUserProfileByIdService };
+export { getUserDetailsById };

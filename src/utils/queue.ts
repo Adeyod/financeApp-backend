@@ -7,6 +7,7 @@ import { BullMQAdapter } from 'bull-board/bullmqAdapter';
 
 // Redis connection options
 const redisOptions: RedisOptions = {
+  // host: '127.0.0.1',
   host: 'localhost',
   port: 6379,
   maxRetriesPerRequest: null,

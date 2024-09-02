@@ -1,20 +1,10 @@
-import { Router } from 'express';
+import express from 'express';
+import { getUserProfileById } from '../controllers/user.controller';
+import { verifyAccessToken } from '../middlewares/jwtAuth';
 
-import {
-  registerUser,
-  verifyUserEmail,
-  loginUser,
-  resendEmailVerificationLink,
-  forgotPassword,
-  resetPassword,
-} from '../controllers/user.controller';
-const router = Router();
+const router = express.Router();
 
-router.post('/register', registerUser);
-router.post('/login', loginUser);
-router.post('/resend-email-verification', resendEmailVerificationLink);
-router.post('/forgot-password', forgotPassword);
-router.post('/reset-password/:userId/:token', resetPassword);
-router.get('/email-verification/:userId/:token', verifyUserEmail);
+router.use(verifyAccessToken);
+router.get('/profile', getUserProfileById);
 
 export default router;

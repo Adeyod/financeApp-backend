@@ -108,8 +108,8 @@ const registerNewUser = async (
   const encodedExpiresAt = expires_at;
   // const encodedExpiresAt = encodeURIComponent(expires_at.toISOString());
 
-  const link = `${FRONTEND_URL}/auth/email-verification/${others.id}/${tokenDetails}`;
-  // const link = `${FRONTEND_URL}/email-verification?userId=${others.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
+  // const link = `${FRONTEND_URL}/auth/email-verification/${others.id}/${tokenDetails}`;
+  const link = `${FRONTEND_URL}/email-verification?userId=${others.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
 
   const jobData = {
     email: others.email,
@@ -266,8 +266,8 @@ const logUserIn = async (
 
       const encodedExpiresAt = encodeExpiresAt(expires_at);
 
-      link = `${FRONTEND_URL}/auth/email-verification/${user.id}/${tokenDetails}`;
-      //  link = `${FRONTEND_URL}/email-verification?userId=${user.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
+      // link = `${FRONTEND_URL}/auth/email-verification/${user.id}/${tokenDetails}`;
+      link = `${FRONTEND_URL}/email-verification?userId=${user.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
 
       const jobData = {
         email: user.email,
@@ -322,8 +322,8 @@ const logUserIn = async (
 
         const encodedExpiresAt = encodeExpiresAt(expires_at);
 
-        link = `${FRONTEND_URL}/auth/email-verification/${user.id}/${tokenDetails}`;
-        //  link = `${FRONTEND_URL}/email-verification?userId=${user.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
+        // link = `${FRONTEND_URL}/auth/email-verification/${user.id}/${tokenDetails}`;
+        link = `${FRONTEND_URL}/email-verification?userId=${user.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
 
         const jobData = {
           email: user.email,
@@ -347,8 +347,8 @@ const logUserIn = async (
       } else {
         const encodedExpiresAt = encodeExpiresAt(expires_at);
 
-        link = `${FRONTEND_URL}/auth/email-verification/${user_id}/${activeToken.token}`;
-        //  link = `${FRONTEND_URL}/email-verification?userId=${user_id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
+        // link = `${FRONTEND_URL}/auth/email-verification/${user_id}/${activeToken.token}`;
+        link = `${FRONTEND_URL}/email-verification?userId=${user_id}&token=${activeToken.token}&expires_at=${encodedExpiresAt}`;
 
         const jobData = {
           email: user.email,
@@ -372,12 +372,14 @@ const logUserIn = async (
   }
 
   const access_token = await generateAccessToken(user.id, user.email);
+  const { token, access } = access_token;
 
   const { password: hashValue, ...others } = user;
 
   const user_access = {
     ...others,
-    access_token,
+    token,
+    access,
   };
 
   return user_access as LoginParams;
@@ -433,8 +435,8 @@ const sendEmailVerificationAgain = async (email: string): Promise<object> => {
     const encodedExpiresAt = encodeExpiresAt(saveToken.expires_at);
     console.log('Newly encodedExpiresAt', encodedExpiresAt);
 
-    link = `${FRONTEND_URL}/auth/email-verification/${saveToken.user_id}/${saveToken.token}`;
-    // const link = `${FRONTEND_URL}/email-verification?userId=${saveToken.user_id}&token=${saveToken.token}&expires_at=${encodedExpiresAt}`;
+    // link = `${FRONTEND_URL}/auth/email-verification/${saveToken.user_id}/${saveToken.token}`;
+    const link = `${FRONTEND_URL}/email-verification?userId=${saveToken.user_id}&token=${saveToken.token}&expires_at=${encodedExpiresAt}`;
   } else if (currentTime > convertExpireDateToNumber(savedToken.expires_at)) {
     const deleteTokenResult = await deleteToken({
       user_id: user.id,
@@ -464,14 +466,14 @@ const sendEmailVerificationAgain = async (email: string): Promise<object> => {
     const encodedExpiresAt = encodeExpiresAt(saveToken.expires_at);
     console.log('Time check encodedExpiresAt', encodedExpiresAt);
 
-    link = `${FRONTEND_URL}/auth/email-verification/${saveToken.user_id}/${saveToken.token}`;
-    // const link = `${FRONTEND_URL}/email-verification?userId=${saveToken.user_id}&token=${saveToken.token}&expires_at=${encodedExpiresAt}`;
+    // link = `${FRONTEND_URL}/auth/email-verification/${saveToken.user_id}/${saveToken.token}`;
+    const link = `${FRONTEND_URL}/email-verification?userId=${saveToken.user_id}&token=${saveToken.token}&expires_at=${encodedExpiresAt}`;
   } else if (savedToken) {
     const { token, user_id, expires_at } = savedToken;
     const encodedExpiresAt = encodeExpiresAt(expires_at);
 
-    link = `${FRONTEND_URL}/auth/email-verification/${user_id}/${token}`;
-    // const link = `${FRONTEND_URL}/email-verification?userId=${user_id}&token=${token}&expires_at=${encodedExpiresAt}`;
+    // link = `${FRONTEND_URL}/auth/email-verification/${user_id}/${token}`;
+    const link = `${FRONTEND_URL}/email-verification?userId=${user_id}&token=${token}&expires_at=${encodedExpiresAt}`;
   }
 
   const jobData = {
@@ -500,7 +502,7 @@ const forgotPass = async (email: string): Promise<object> => {
   if (!userFound) {
     throw new AppError(`User with email ${email} not found`, 404);
   }
-  if (userFound.is_verified === false) {
+  if (!userFound.is_verified) {
     throw new AppError(
       'You need to verify your email address before you can use this service',
       403
@@ -536,10 +538,10 @@ const forgotPass = async (email: string): Promise<object> => {
 
     const { token: tokenValue, user_id, expires_at } = saveToken;
 
-    const encodedExpiresAt = encodeExpiresAt(expires_at);
+    const encodedExpiresAt = expires_at;
 
-    link = `${FRONTEND_URL}/auth/reset-password/${user_id}/${tokenValue}`;
-    // link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${tokenValue}&expiresAt=${encodedExpiresAt}`
+    // link = `${FRONTEND_URL}/auth/reset-password/${user_id}/${tokenValue}`;
+    link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${tokenValue}&expiresAt=${encodedExpiresAt}`;
   } else if (tokenFound) {
     const currentTime = Date.now();
     const expiresAt = convertExpireDateToNumber(tokenFound.expires_at);
@@ -571,17 +573,17 @@ const forgotPass = async (email: string): Promise<object> => {
 
       const { token: tokenValue, user_id, expires_at } = saveToken;
 
-      const encodedExpiresAt = encodeExpiresAt(expires_at);
+      const encodedExpiresAt = expires_at;
 
-      link = `${FRONTEND_URL}/auth/reset-password/${user_id}/${tokenValue}`;
-      // link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${tokenValue}&expiresAt=${encodedExpiresAt}`
+      // link = `${FRONTEND_URL}/auth/reset-password/${user_id}/${tokenValue}`;
+      link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${tokenValue}&expiresAt=${encodedExpiresAt}`;
     } else {
       const { user_id, token, expires_at } = tokenFound;
 
-      const encodedExpiresAt = encodeExpiresAt(expires_at);
+      const encodedExpiresAt = expires_at;
 
-      link = `${FRONTEND_URL}/auth/reset-password/${user_id}/${token}`;
-      // link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${tokenValue}&expiresAt=${encodedExpiresAt}
+      // link = `${FRONTEND_URL}/auth/reset-password/${user_id}/${token}`;
+      link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${token}&expiresAt=${encodedExpiresAt}`;
     }
   }
 

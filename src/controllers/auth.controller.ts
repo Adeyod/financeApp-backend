@@ -76,12 +76,10 @@ const loginUser = catchErrors(async (req, res) => {
 
   const { success, value } = validateInputs;
 
-  const { access_token, ...others } = await logUserIn(value);
-
-  console.log(access_token);
+  const { access, token, ...others } = await logUserIn(value);
 
   return res
-    .cookie('access_token', access_token, {
+    .cookie('access_token', token, {
       httpOnly: true,
       maxAge: 15 * 24 * 60 * 60 * 1000,
     })
@@ -89,6 +87,7 @@ const loginUser = catchErrors(async (req, res) => {
     .json({
       message: `${others.first_name}, your login was successful`,
       user: others,
+      access,
       success: true,
       status: 200,
     });
@@ -196,7 +195,15 @@ const sendPhoneVerificationCode = catchErrors(async (req, res) => {
   const serviceResult = await sendPhoneVerificationPin(user_id, user.userId);
 });
 
+const logoutUser = catchErrors(async (req, res) => {
+  res.clearCookie('access_token', { httpOnly: true });
+  res.status(200).json({
+    message: 'User logged out successfully',
+  });
+});
+
 export {
+  logoutUser,
   registerUser,
   verifyUserEmail,
   loginUser,

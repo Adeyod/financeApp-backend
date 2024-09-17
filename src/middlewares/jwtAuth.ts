@@ -1,4 +1,6 @@
 import jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
+
 import catchError from '../utils/tryCatch';
 import { JWT_SECRET } from '../constants/env';
 import { Response, Request, NextFunction } from 'express';
@@ -13,11 +15,25 @@ const generateAccessToken = async (userId: string, userEmail: string) => {
       userEmail,
     };
 
+    const payload2 = {
+      userId,
+      unique: uuidv4(),
+    };
+
+    const access = await jwt.sign(payload2, JWT_SECRET, {
+      expiresIn: '15days',
+    });
+
     const token = await jwt.sign(payload, JWT_SECRET, {
       expiresIn: '15days',
     });
 
-    return token;
+    const tokenObject = {
+      access,
+      token,
+    };
+
+    return tokenObject;
   } catch (error: any) {
     throw new JwtError(error.message, error.status);
   }

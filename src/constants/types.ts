@@ -99,7 +99,8 @@ type VerificationParams = Pick<
 type PayloadWithoutPassword = Omit<UserDocument, 'password'>;
 
 type LoginParams = PayloadWithoutPassword & {
-  access_token: string;
+  access: string;
+  token: string;
 };
 
 type EmailVerificationDocument = {

@@ -27,6 +27,8 @@ const payStackInitialized = async (transactionInfo: TransactionType) => {
     metadata: transactionInfo,
   };
 
+  console.log(paystackData);
+
   const response = await axios.post(
     'https://api.paystack.co/transaction/initialize',
     paystackData,
@@ -37,6 +39,8 @@ const payStackInitialized = async (transactionInfo: TransactionType) => {
       },
     }
   );
+
+  console.log('payStackInitialized response', response);
 
   const parsedData = JSON.parse(response.config.data);
 
@@ -76,6 +80,8 @@ const paystackCallBack = async (reference: string) => {
     const url = `https://api.paystack.co/transaction/verify/${reference}`;
 
     const paystackResponse = await axios(url, { headers });
+
+    console.log('paystackCallBack', paystackResponse);
 
     if (paystackResponse.data.data.status === 'success') {
       const data: DataType = {

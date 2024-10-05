@@ -33,10 +33,10 @@ const cloudinaryUploads = async (
       options,
       (error: any, result: UploadApiResponse | undefined) => {
         if (error) {
-          rejects(error);
+          return reject(error);
         } else if (result) {
           resolve({
-            url: result.url,
+            url: result.secure_url,
             public_id: result.public_id,
           });
         } else {

@@ -82,6 +82,7 @@ const loginUser = catchErrors(async (req, res) => {
     .cookie('access_token', token, {
       httpOnly: true,
       sameSite: 'none',
+      secure: true,
       maxAge: 15 * 24 * 60 * 60 * 1000,
     })
     .status(200)

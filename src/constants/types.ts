@@ -80,6 +80,10 @@ type UserDocument = Payload & {
   two_fa_enabled: boolean;
   biometric_enabled: boolean;
   is_phone_verified: boolean;
+  profile_image?: {
+    url: string;
+    public_id: string;
+  };
 };
 
 type VerificationQuery = {
@@ -89,6 +93,20 @@ type VerificationQuery = {
   purpose: string;
   created_at: string;
   expires_at: string;
+};
+
+type TransactionType = {
+  amount: string;
+  account_number: string;
+  email: string;
+  user_id: string;
+};
+
+type DataType = {
+  amount: number;
+  reference: string;
+  account_number: string;
+  user_id: string;
 };
 
 type VerificationParams = Pick<
@@ -156,7 +174,50 @@ type EmailJobData = {
   type: 'email-verification' | 'forgot-password';
 };
 
+type AccountCredit = {
+  user_id: string;
+  account_number: string;
+  amount: number;
+};
+
+type TransactionDetails = {
+  id: string;
+  user_id: string;
+  amount: number;
+  transaction_type: string;
+  transaction_date: Date;
+  transaction_status: string;
+  description: string;
+  account_number: string;
+  account_id: string;
+  reference_number: string;
+  created_at: string;
+  updated_at: string;
+  transaction_source: string;
+};
+
+type InitializationType = {
+  status: boolean;
+  message: string;
+  reference: string;
+  user_id: string;
+  amount: number;
+  transaction_type: string;
+  transaction_status: string;
+  description: string;
+  account_number: string;
+};
+
+type TransactionResponse = {
+  transaction: TransactionDetails;
+  user: PayloadWithoutPassword;
+};
+
 export {
+  TransactionResponse,
+  InitializationType,
+  AccountCredit,
+  TransactionDetails,
   EmailJobData,
   EmailType,
   ChangePasswordType,
@@ -180,4 +241,6 @@ export {
   ComparePassType,
   User,
   GenerateCodeType,
+  TransactionType,
+  DataType,
 };

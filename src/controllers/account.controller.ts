@@ -10,8 +10,6 @@ import catchErrors from '../utils/tryCatch';
 const getAllUserAccountsByUserId = catchErrors(async (req, res) => {
   const user = req.user;
 
-  const { user_id } = req.params;
-
   if (!user) {
     throw new AppError('Unable to authenticate user', 401);
   }
@@ -21,6 +19,8 @@ const getAllUserAccountsByUserId = catchErrors(async (req, res) => {
   console.log(userAccounts);
 
   return res.json({
+    message: 'Accounts fetched successfully',
+    success: true,
     accounts: userAccounts,
   });
 });

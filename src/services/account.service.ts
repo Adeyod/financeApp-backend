@@ -5,7 +5,7 @@ import {
 import {
   getAllUserAccountsById,
   getSingleUserAccountsById,
-} from '../repository/user.repository';
+} from '../repository/account.repository';
 import { AppError } from '../utils/app.error';
 
 const getAllUserAccountsUserId = async (user_id: string) => {

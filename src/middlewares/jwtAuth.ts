@@ -51,6 +51,7 @@ const verifyAccessToken = async (
     }
 
     const user = (await jwt.verify(access_token, JWT_SECRET)) as UserInJwt;
+
     if (!user) {
       throw new AppError('Invalid token', 401);
     }

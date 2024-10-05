@@ -3,6 +3,7 @@ import twilio from 'twilio';
 import {
   AccountCreatedDetailsType,
   Payload,
+  PayloadWithoutPassword,
   ResetPasswordDocument,
   SmsType,
   UserDocument,
@@ -79,36 +80,6 @@ const updateUserPassword = async ({
   return result;
 };
 
-const getAllUserAccountsById = async (
-  user_id: string
-): Promise<AccountCreatedDetailsType[]> => {
-  const userAccounts = await knexConnect<AccountCreatedDetailsType>('accounts')
-    .select('*')
-    .where('user_id', user_id);
-
-  const accounts = userAccounts;
-  if (!accounts) {
-    throw new AppError('No account found for this user', 404);
-  }
-  return accounts;
-};
-
-const getSingleUserAccountsById = async (
-  user_id: string,
-  account_id: string
-): Promise<AccountCreatedDetailsType> => {
-  const userAccount = await knexConnect<AccountCreatedDetailsType>('accounts')
-    .select('*')
-    .where('id', account_id)
-    .andWhere('user_id', user_id)
-    .first();
-
-  if (!userAccount) {
-    throw new AppError('Account not found', 404);
-  }
-  return userAccount;
-};
-
 const sendSMS = async ({ code, phone_number }: SmsType): Promise<void> => {
   const accountSid = process.env.TWILIO_ACCOUNT_SID as string;
   const authToken = process.env.TWILIO_AUTH_TOKEN as string;
@@ -128,9 +99,23 @@ const sendSMS = async ({ code, phone_number }: SmsType): Promise<void> => {
   }
 };
 
+const saveImageToDatabase = async (
+  profile_image: {
+    url: string;
+    public_id: string;
+  },
+  user_id: string
+): Promise<PayloadWithoutPassword> => {
+  const result = await knexConnect<PayloadWithoutPassword>('users')
+    .update({ profile_image })
+    .where('id', user_id)
+    .returning('*');
+
+  return result[0];
+};
+
 export {
-  getSingleUserAccountsById,
-  getAllUserAccountsById,
+  saveImageToDatabase,
   findUserById,
   findUserByUsername,
   updateUserPassword,

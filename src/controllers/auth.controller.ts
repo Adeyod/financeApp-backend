@@ -81,6 +81,7 @@ const loginUser = catchErrors(async (req, res) => {
   return res
     .cookie('access_token', token, {
       httpOnly: true,
+      sameSite: 'none',
       maxAge: 15 * 24 * 60 * 60 * 1000,
     })
     .status(200)
@@ -156,11 +157,12 @@ const resetPassword = catchErrors(async (req, res) => {
 const changePassword = catchErrors(async (req, res) => {
   const user = req.user;
 
-  const { currentPassword, newPassword, confirmNewPassword } = await req.body;
+  const { current_password, new_password, confirm_new_password } =
+    await req.body;
 
   const inputContent = {
-    password: newPassword,
-    confirm_password: confirmNewPassword,
+    password: new_password,
+    confirm_password: confirm_new_password,
   };
 
   const validateInputs = joiValidation(inputContent, 'reset-password');
@@ -173,7 +175,7 @@ const changePassword = catchErrors(async (req, res) => {
 
   const changePasswordServiceResult = await passwordChange({
     reqId: user.userId,
-    currentPassword,
+    currentPassword: current_password,
     newPassword: value.password,
   });
 

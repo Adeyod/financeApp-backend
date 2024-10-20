@@ -84,8 +84,6 @@ const sendSMS = async ({ code, phone_number }: SmsType): Promise<void> => {
   const accountSid = process.env.TWILIO_ACCOUNT_SID as string;
   const authToken = process.env.TWILIO_AUTH_TOKEN as string;
 
-  console.log(accountSid, authToken);
-
   const client = twilio(accountSid, authToken);
   try {
     const result = await client.messages.create({
@@ -93,7 +91,6 @@ const sendSMS = async ({ code, phone_number }: SmsType): Promise<void> => {
       to: phone_number,
       from: '+12345678901',
     });
-    console.log(result);
   } catch (error) {
     console.log(error);
   }

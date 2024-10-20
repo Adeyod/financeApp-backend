@@ -47,7 +47,7 @@ type AccountCreatedDetailsType = {
   id: string;
   user_id: string;
   account_number: string;
-  balance: number;
+  balance: string;
   is_default: boolean;
   created_at: string;
   updated_at: string;
@@ -180,6 +180,15 @@ type AccountCredit = {
   amount: number;
 };
 
+type BankCreditType = {
+  paying_account_number: string;
+  receiving_account_number: string;
+  bank_name: string;
+  amount: number;
+  user_id: string;
+  narration: string;
+};
+
 type TransactionDetails = {
   id: string;
   user_id: string;
@@ -194,6 +203,9 @@ type TransactionDetails = {
   created_at: string;
   updated_at: string;
   transaction_source: string;
+  receiving_account?: string;
+  receiving_account_number: string;
+  receiver_account_name: string;
 };
 
 type InitializationType = {
@@ -208,12 +220,143 @@ type InitializationType = {
   account_number: string;
 };
 
+type MonnifyPendingStatus = {
+  user_id: string;
+  amount: string;
+  receiver_account_name: string;
+  transaction_type: string;
+  transaction_date: Date;
+  transaction_status: string;
+  description: string;
+  account_id: string;
+  reference_number: string;
+  receiving_account: string;
+  account_number: string;
+};
+
+type MonnifyDataUpdate = {
+  account_number: string;
+  monnifyResponse: {
+    reference: string;
+    amount: string;
+    receiving_bank_name: string;
+  };
+};
+
 type TransactionResponse = {
   transaction: TransactionDetails;
   user: PayloadWithoutPassword;
 };
 
+type ReceiverInfo = {
+  account_number: string;
+  account_name: string;
+  bank_id: number;
+};
+
+type BankDataReturnType = {
+  id: string;
+  bank_id: number;
+  name: string;
+  slug: string;
+  code: string;
+  longcode: string;
+  pay_with_bank: boolean;
+  supports_transfer: boolean;
+  active: boolean;
+  country: string;
+  currency: string;
+  type: string;
+  is_deleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type BankDataType = {
+  id: number;
+  name: string;
+  slug: string;
+  code: string;
+  longcode: string;
+  pay_with_bank: boolean;
+  supports_transfer: boolean;
+  active: boolean;
+  country: string;
+  currency: string;
+  type: string;
+  is_deleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type PaystackTransferInitialized = {
+  active: boolean;
+  createdAt: string;
+  currency: string;
+  description: string;
+  domain: string;
+  email: string;
+  id: number;
+  integration: number;
+  metadata: {
+    sender_id: string;
+    amount: number;
+    sender_account: string;
+  };
+  name: string;
+  recipient_code: string;
+  type: string;
+  updatedAt: string;
+  is_deleted: boolean;
+  isDeleted: boolean;
+  details: {
+    authorization_code: string;
+    account_number: string;
+    account_name: string;
+    bank_code: string;
+    bank_name: string;
+  };
+};
+
+type FundFlowTransferData = {
+  user_id: string;
+  receiving_account_number: string;
+  selected_account_number: string;
+  amount: string;
+  description: string;
+};
+
+type UpdateTransferAccountType = {
+  sender: AccountCreatedDetailsType;
+  receiver: AccountCreatedDetailsType;
+  amount: string;
+  description: string;
+};
+
+type MonnifyTransferInitialization = {
+  accessToken: string;
+  user_id: string;
+  amount: string;
+  narration: string;
+  receiverDetails: {
+    account_number: string;
+    bank_code: string;
+  };
+  destinationBankCode: string;
+  destinationAccountNumber: string;
+  reference: string;
+};
+
 export {
+  MonnifyDataUpdate,
+  MonnifyTransferInitialization,
+  UpdateTransferAccountType,
+  FundFlowTransferData,
+  PaystackTransferInitialized,
+  ReceiverInfo,
+  BankDataReturnType,
+  BankDataType,
+  BankCreditType,
   TransactionResponse,
   InitializationType,
   AccountCredit,
@@ -243,4 +386,5 @@ export {
   GenerateCodeType,
   TransactionType,
   DataType,
+  MonnifyPendingStatus,
 };

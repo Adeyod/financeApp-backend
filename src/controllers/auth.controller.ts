@@ -67,6 +67,8 @@ const verifyUserEmail = catchErrors(async (req, res) => {
 const loginUser = catchErrors(async (req, res) => {
   const { login_input, password }: PayloadForLoginInput = req.body;
 
+  console.log(req.headers['x-fund-flow']);
+
   const payload = {
     login_input,
     password,
@@ -78,21 +80,32 @@ const loginUser = catchErrors(async (req, res) => {
 
   const { access, token, ...others } = await logUserIn(value);
 
-  return res
-    .cookie('access_token', token, {
-      httpOnly: true,
-      sameSite: 'none',
-      secure: true,
-      maxAge: 15 * 24 * 60 * 60 * 1000,
-    })
-    .status(200)
-    .json({
+  if (req.headers['x-fund-flow'] === 'mobile-fund-flow') {
+    return res.status(200).json({
       message: `${others.first_name}, your login was successful`,
       user: others,
       access,
+      token,
       success: true,
       status: 200,
     });
+  } else {
+    return res
+      .cookie('token', token, {
+        httpOnly: true,
+        // sameSite: 'none', // Needed during production or deployment for HTTPS
+        // secure: true, // Needed during production or deployment for HTTPS
+        maxAge: 15 * 24 * 60 * 60 * 1000,
+      })
+      .status(200)
+      .json({
+        message: `${others.first_name}, your login was successful`,
+        user: others,
+        access,
+        success: true,
+        status: 200,
+      });
+  }
 });
 
 const resendEmailVerificationLink = catchErrors(async (req, res) => {

@@ -1,4 +1,5 @@
 import { GenerateCodeType } from '../constants/types';
+import crypto from 'crypto';
 
 const generateRandomCode = (num: number) => {
   if (num < 1) {
@@ -28,4 +29,17 @@ const generateCode = async ({
   return code;
 };
 
-export { generateCode, generateRandomCode };
+const generateReferenceCode = async (num: number) => {
+  const result = crypto.randomBytes(num).toString('hex').slice(0, num);
+  const timestamp = Date.now(); // Add a timestamp to make the code unique
+  const response = `ffw-${result}-${timestamp}`;
+  return response;
+};
+
+// const generateReferenceCode = async (num: number) => {
+//   const result = crypto.randomBytes(num).toString('hex').slice(0, num);
+//   const response = `ffw-${result}`;
+//   return response;
+// };
+
+export { generateCode, generateRandomCode, generateReferenceCode };

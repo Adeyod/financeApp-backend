@@ -5,8 +5,11 @@ import {
 import {
   getAllUserAccountsById,
   getSingleUserAccountsById,
+  getUserAccountByAccountNumber,
+  // getSingleUserAccountsByAccountNumber
 } from '../repository/account.repository';
 import { AppError } from '../utils/app.error';
+import { paystackFetchReceivingAccount } from '../utils/paystack';
 
 const getAllUserAccountsUserId = async (user_id: string) => {
   const getAllUserAccount = await getAllUserAccountsById(user_id);
@@ -23,6 +26,20 @@ const getSingleUserAccountUserIdAndId = async (
   const getSingleUserAccount = await getSingleUserAccountsById(
     user_id,
     account_id
+  );
+  if (!getSingleUserAccount) {
+    throw new AppError('Unable to get an account number for this user', 404);
+  }
+  return getSingleUserAccount;
+};
+
+const getSingleUserAccountUsingAccountNumber = async (
+  user_id: string,
+  account_number: string
+) => {
+  const getSingleUserAccount = await getUserAccountByAccountNumber(
+    user_id,
+    account_number
   );
   if (!getSingleUserAccount) {
     throw new AppError('Unable to get an account number for this user', 404);
@@ -47,7 +64,21 @@ const createNewUserAccount = async (user_id: string) => {
   return newAccountCreated;
 };
 
+const getReceiverAccount = async (
+  receivingAccount: string,
+  bankCode: string
+) => {
+  const paystackResponse = await paystackFetchReceivingAccount(
+    receivingAccount,
+    bankCode
+  );
+
+  return paystackResponse;
+};
+
 export {
+  getReceiverAccount,
+  getSingleUserAccountUsingAccountNumber,
   createNewUserAccount,
   getAllUserAccountsUserId,
   getSingleUserAccountUserIdAndId,

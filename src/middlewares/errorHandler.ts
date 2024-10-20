@@ -6,7 +6,6 @@ const isJoiError = (error: any): error is JoiError => {
 };
 
 const appErrorHandler = (res: Response, error: AppError) => {
-  console.log('from Error handler:', error.message);
   return res.status(error.statusCode).json({
     message: error.message,
     success: false,

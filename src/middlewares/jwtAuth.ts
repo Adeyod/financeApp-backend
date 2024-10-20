@@ -45,12 +45,18 @@ const verifyAccessToken = async (
   next: NextFunction
 ): Promise<any> => {
   try {
-    const access_token = await req.cookies.access_token;
-    if (!access_token) {
+    let token;
+
+    if (req.headers['x-fund-flow'] === 'web-fund-flow') {
+      token = await req.cookies.token;
+    } else if (req.headers['x-fund-flow'] === 'mobile-fund-flow') {
+      token = req.headers['authorization']?.split(' ')[1];
+    }
+    if (!token) {
       throw new AppError('Please login to continue', 401);
     }
 
-    const user = (await jwt.verify(access_token, JWT_SECRET)) as UserInJwt;
+    const user = (await jwt.verify(token, JWT_SECRET)) as UserInJwt;
 
     if (!user) {
       throw new AppError('Invalid token', 401);

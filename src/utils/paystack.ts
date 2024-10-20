@@ -8,15 +8,20 @@ import {
 import {
   AccountCreatedDetailsType,
   DataType,
+  PaystackTransferInitialized,
+  ReceiverInfo,
   TransactionDetails,
   TransactionType,
 } from '../constants/types';
 import {
   findTransactionByReference,
   findTransactionByReferenceAndStatus,
-  saveInitializedTransaction,
+  saveInitializedCredit,
+  updateBankData,
   updateUserTransaction,
 } from '../repository/transaction.repository';
+
+const secret = process.env.PAYSTACK_TEST_SECRET_KEY || '';
 
 const payStackInitialized = async (transactionInfo: TransactionType) => {
   const formattedAmount =
@@ -34,7 +39,7 @@ const payStackInitialized = async (transactionInfo: TransactionType) => {
     paystackData,
     {
       headers: {
-        Authorization: `Bearer ${process.env.PAYSTACK_TEST_SECRET_KEY}`,
+        Authorization: `Bearer ${secret}`,
         'Content-Type': 'application/json',
       },
     }
@@ -64,14 +69,14 @@ const payStackInitialized = async (transactionInfo: TransactionType) => {
     account_number: parsedData.metadata.account_number,
   };
 
-  const result = await saveInitializedTransaction(data);
+  const result = await saveInitializedCredit(data);
 
   return { response, result };
 };
 
 const paystackCallBack = async (reference: string) => {
   try {
-    const secret = process.env.PAYSTACK_TEST_SECRET_KEY || '';
+    // const secret = process.env.PAYSTACK_TEST_SECRET_KEY || '';
 
     const headers = {
       Authorization: `Bearer ${secret}`,
@@ -131,7 +136,6 @@ const paystackCallBack = async (reference: string) => {
 
 const paystackResult = async (req: Request, res: Response) => {
   try {
-    const secret = process.env.PAYSTACK_TEST_SECRET_KEY || '';
     const hash = crypto
       .createHmac('sha512', secret)
       .update(JSON.stringify(req.body))
@@ -195,4 +199,138 @@ const paystackResult = async (req: Request, res: Response) => {
   }
 };
 
-export { payStackInitialized, paystackResult, paystackCallBack };
+//  I will use cron job to run this code twice in a month to fetch updated bank info
+const paystackBankCodes = async () => {
+  try {
+    const url = 'https://api.paystack.co/bank';
+    const headers = { Authorization: `Bearer ${secret}` };
+
+    const response = await axios(url, {
+      headers,
+    });
+
+    const saveToDatabase = await updateBankData(response.data.data);
+    console.log('saveToDatabase:', saveToDatabase);
+    return response;
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+const paystackFetchReceivingAccount = async (
+  receivingAccount: string,
+  bankCode: string
+) => {
+  try {
+    const url = `https://api.paystack.co/bank/resolve?account_number=${receivingAccount}&bank_code=${bankCode}`;
+    const headers = { Authorization: `Bearer ${secret}` };
+
+    const response = await axios(url, { headers });
+    return response;
+  } catch (error) {
+    console.log(error);
+    throw new Error('Unable to validate account');
+  }
+};
+
+const paystackInitializeTransfer = async (
+  paystackData: PaystackTransferInitialized
+) => {
+  const recipient_code = paystackData.recipient_code;
+  const amount = paystackData.metadata.amount;
+
+  console.log('recepient code:', recipient_code);
+  console.log('amount:', amount);
+
+  const url = 'https://api.paystack.co/transfer';
+
+  const headers = {
+    Authorization: `Bearer ${secret}`,
+    'Content-Type': 'application/json',
+  };
+
+  const data = {
+    source: 'balance',
+    reason: 'Calm down',
+    amount: amount,
+    recipient: recipient_code,
+  };
+
+  const response = await axios
+    .post(url, data, { headers })
+    .then((res) => {
+      console.log('TRANSACTION INITIALIZATION:', res.data.data.meta);
+      console.log('TRANSACTION INITIALIZATION:', res.data.meta);
+    })
+    .catch((err) => {
+      console.log('TRANSACTION ERROR:', err?.response?.data);
+      throw new Error(err?.response?.data?.message);
+    });
+
+  return response;
+};
+
+const paystackCreateTransferRecipient = async (
+  user_id: string,
+  receiverDetails: ReceiverInfo,
+  receivingAccount: string,
+  selectedAccountNumber: string,
+  bankCode: string,
+  amount: string
+) => {
+  try {
+    const url = 'https://api.paystack.co/transferrecipient';
+
+    const amountInKobo = parseFloat(amount) * 100;
+
+    const metadata = {
+      sender_id: user_id,
+      amount: amountInKobo,
+      sender_account: selectedAccountNumber,
+    };
+    const data = {
+      type: 'nuban',
+      name: receiverDetails?.account_name,
+      account_number: receiverDetails?.account_number,
+      bank_code: bankCode,
+      currency: 'NGN',
+      metadata,
+    };
+
+    const headers = {
+      Authorization: `Bearer ${secret}`,
+      'Content-Type': 'application/json',
+    };
+
+    let response;
+
+    response = await axios.post(url, data, { headers });
+
+    if (response.data.status === true) {
+      const initializeTransfer = await paystackInitializeTransfer(
+        response?.data?.data
+      );
+
+      response = initializeTransfer;
+    } else {
+      console.error('Error initializing transfer');
+    }
+
+    console.log('PAYSTACK CREATE TRANSFER RECIPIENT:', response);
+
+    return response;
+  } catch (error) {
+    console.log(error);
+    throw new Error('Unable to validate account');
+  }
+};
+
+export {
+  paystackCreateTransferRecipient,
+  paystackFetchReceivingAccount,
+  payStackInitialized,
+  paystackResult,
+  paystackCallBack,
+  // paystackBankTransfer,
+  paystackBankCodes,
+};

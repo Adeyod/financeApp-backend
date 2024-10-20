@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
 import ngrok from '@ngrok/ngrok';
 
 import { errorHandler } from './middlewares/errorHandler';
@@ -10,6 +11,7 @@ import userRoutes from './routes/user.route';
 import accountRoutes from './routes/account.route';
 import transactionRoutes from './routes/transaction.route';
 import { router } from './utils/queue';
+import authenticateCustomHeader from './middlewares/customHeader';
 
 dotenv.config();
 const app = express();
@@ -26,6 +28,8 @@ app.use(
   })
 );
 
+app.use(helmet());
+app.use(authenticateCustomHeader);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/accounts', accountRoutes);

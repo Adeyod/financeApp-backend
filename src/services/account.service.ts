@@ -1,5 +1,6 @@
 import {
   generateAccountNumber,
+  getAccountByAccountNumberOnly,
   saveAccountNumber,
 } from '../repository/account.repository';
 import {
@@ -8,6 +9,7 @@ import {
   getUserAccountByAccountNumber,
   // getSingleUserAccountsByAccountNumber
 } from '../repository/account.repository';
+import { findUserById } from '../repository/user.repository';
 import { AppError } from '../utils/app.error';
 import { paystackFetchReceivingAccount } from '../utils/paystack';
 
@@ -48,6 +50,11 @@ const getSingleUserAccountUsingAccountNumber = async (
 };
 
 const createNewUserAccount = async (user_id: string) => {
+  const userAccounts = await getAllUserAccountsUserId(user_id);
+
+  if (userAccounts.length === 5) {
+    throw new AppError('User can not have more than 5 accounts', 400);
+  }
   const accountNumber = await generateAccountNumber();
 
   const accountString = JSON.stringify(accountNumber);
@@ -75,8 +82,20 @@ const getReceiverAccount = async (
 
   return paystackResponse;
 };
+const getReceivingFundFlowAccountDetails = async (receivingAccount: string) => {
+  const response = await getAccountByAccountNumberOnly(receivingAccount);
+  const userName = await findUserById(response.user_id);
+
+  const userObj = {
+    first_name: userName[0].first_name,
+    last_name: userName[0].last_name,
+  };
+
+  return userObj;
+};
 
 export {
+  getReceivingFundFlowAccountDetails,
   getReceiverAccount,
   getSingleUserAccountUsingAccountNumber,
   createNewUserAccount,

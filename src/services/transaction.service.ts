@@ -12,7 +12,7 @@ import {
   paystackCallBack,
   // paystackBankTransfer,
   payStackInitialized,
-  paystackResult,
+  paystackWebHook,
   paystackCreateTransferRecipient,
 } from '../utils/paystack';
 import {
@@ -20,16 +20,19 @@ import {
   BankCreditType,
   ReceiverInfo,
   FundFlowTransferData,
+  Receiver,
 } from '../constants/types';
 import {
   getAllBanks,
   getSingleTransactionByTransactionIdAndUserId,
   getSingleTransactionsByAccountNumber,
   saveLocalBankTransferTransaction,
+  totalTransferredToday,
   userTransactionsDetails,
 } from '../repository/transaction.repository';
 import { getMonnifyAccessKey, initiateTransfer } from '../utils/monnify';
-import { generateReferenceCode } from '../utils/codes';
+import { generateReferenceCode, transactionLimit } from '../utils/codes';
+import { getABank } from '../repository/bank.repository';
 
 const userAccountCredit = async (
   account_number: string,
@@ -37,8 +40,6 @@ const userAccountCredit = async (
   user_id: string
 ) => {
   const userExist = await findUserById(user_id);
-
-  console.log(amount);
 
   const user = userExist[0];
 
@@ -66,7 +67,6 @@ const userAccountCredit = async (
 
   // create the instance of transaction inside the transaction table for the transaction
 
-  // console.log('RESPONSE:', paystackResponse)
   return paystackResponse;
 };
 
@@ -78,10 +78,6 @@ const getUserTransactionsWithUserId = async (
 ): Promise<{ totalCount: number; transactions: TransactionDetails[] }> => {
   // calculate offset(skip)
   const offset = (page - 1) * limit;
-
-  console.log('searchParams:', searchParams);
-  console.log('service page:', page);
-  console.log('service limit:', typeof limit);
 
   const transactionResponse = await userTransactionsDetails(
     userId,
@@ -97,7 +93,7 @@ const getUserTransactionsWithUserId = async (
 };
 
 const getTransactionResponse = async (req: Request, res: Response) => {
-  const response = await paystackResult(req, res);
+  const response = await paystackWebHook(req, res);
   return response;
 };
 
@@ -161,6 +157,16 @@ const getBankDetails = async () => {
   return result;
 };
 
+const getSingleBankDetailsByCode = async (code: string) => {
+  const result = await getABank(code);
+
+  if (!result) {
+    throw new AppError('Unable to get bank details from the database', 404);
+  }
+
+  return result;
+};
+
 const getSingleAccountTransactionsWithAccountNumber = async (
   account_number: string,
   page: number = 1,
@@ -175,10 +181,6 @@ const getSingleAccountTransactionsWithAccountNumber = async (
   // skip
   const offset = (page - 1) * limit;
 
-  console.log('SERVICE accountNumber:', account_number);
-  console.log('SERVICE limit:', limit);
-  console.log('SERVICE offset:', offset);
-  console.log('SERVICE searchParams:', searchParams);
   const results = await getSingleTransactionsByAccountNumber(
     account_number,
     limit,
@@ -210,12 +212,6 @@ const getSingleAccountTransactionsWithAccountNumber = async (
   return response;
 };
 
-type Receiver = {
-  account_number: string;
-  account_name: string;
-  bank_code: string;
-};
-
 const transferMoneyRequest = async (
   user_id: string,
   receiverDetails: Receiver,
@@ -237,7 +233,24 @@ const transferMoneyRequest = async (
     throw new AppError('Insufficient balance.', 400);
   }
 
-  const referenceCode = await generateReferenceCode(30);
+  const userDetails = await findUserById(user_id);
+  const totalDailyTransactions = await totalTransferredToday(user_id);
+
+  const setLimit =
+    userDetails[0].account_tier === 'standard'
+      ? transactionLimit().standard
+      : transactionLimit().basic;
+
+  const parsedDailyLimit = parseFloat(totalDailyTransactions);
+
+  if (parsedDailyLimit + parsedAmount > setLimit) {
+    throw new AppError(
+      `Transfer limit exceeded. Your daily transfer limit is ${setLimit} and you have already transferred ${totalDailyTransactions} in the last 24 hours. You can upgrade your account to set new daily limit.`,
+      403
+    );
+  }
+
+  const referenceCode = await generateReferenceCode(6);
 
   const data = {
     user_id: user_id,
@@ -281,8 +294,6 @@ const transferMoneyRequest = async (
       `Unable to complete transaction. Error coming from monnify: ${monnifyResponse}`
     );
   }
-  console.log('SERVICE:', monnifyResponse.config.data);
-  console.log('SERVICE:', monnifyResponse.data.responseBody);
 
   if (monnifyResponse.data.responseBody.status === 'SUCCESS') {
     // UPDATE THE TRANSACTION IN THE TRANSACTION TABLE
@@ -297,14 +308,11 @@ const transferMoneyRequest = async (
       account_number: selectedAccountNumber,
     };
     const result = await updateAccountBalance(data);
-    console.log('SERVICE:', result);
     return result;
   } else {
     console.log('Unable to process transaction');
     return;
   }
-
-  // console.log('paystackResponse:', paystackResponse.data.data.details);
 };
 
 const getSingleUserTransaction = async (
@@ -325,6 +333,7 @@ const fundFlowTransfer = async ({
   selected_account_number,
   amount,
   description,
+  receiver_account_name,
 }: FundFlowTransferData) => {
   const findAccount = await getUserAccountByAccountNumber(
     user_id,
@@ -334,9 +343,27 @@ const fundFlowTransfer = async ({
     throw new AppError('Account not found', 401);
   }
 
-  if (Number(findAccount.balance) < Number(amount)) {
-    console.log('Insufficient funds');
+  if (parseFloat(findAccount.balance) < parseFloat(amount)) {
     throw new AppError('Insufficient balance', 400);
+  }
+
+  const userDetails = await findUserById(user_id);
+  const totalDailyTransactions = await totalTransferredToday(user_id);
+
+  const setLimit =
+    userDetails[0].account_tier === 'standard'
+      ? transactionLimit().standard
+      : transactionLimit().basic;
+
+  const parsedDailyLimit = parseFloat(totalDailyTransactions);
+
+  const parsedAmount = parseFloat(amount);
+
+  if (parsedDailyLimit + parsedAmount > setLimit) {
+    throw new AppError(
+      `Transfer limit exceeded. Your daily transfer limit is ${setLimit} and you have already transferred ${totalDailyTransactions} in the last 24 hours. You can upgrade your account to set new daily limit.`,
+      403
+    );
   }
 
   const accountExist = await getAccountByAccountNumberOnly(
@@ -355,12 +382,14 @@ const fundFlowTransfer = async ({
     receiver: accountExist,
     amount: amount,
     description: description,
+    receiver_account_name,
   });
 
   return response;
 };
 
 export {
+  getSingleBankDetailsByCode,
   fundFlowTransfer,
   getSingleUserTransaction,
   transferMoneyRequest,

@@ -94,6 +94,7 @@ const multipleFileUpload = async (
 const handleFileUpload = async (req: any, res: any) => {
   try {
     let newPath;
+    console.log('i am inside cloudinary');
     if (req.file) {
       newPath = await singleFileUpload(req.file, res);
     }

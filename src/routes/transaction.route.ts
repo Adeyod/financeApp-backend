@@ -6,11 +6,11 @@ import {
   getTransactionResponseFromPaystackWebhook,
   getPaystackCallBack,
   bankTransfer,
-  inAppTransfer,
   getBankDetailsAndCodes,
   transferToOtherBank,
   getUserSingleTransaction,
   transferToFundFlowAccount,
+  getPaystacktransactionStatus,
 } from '../controllers/transaction.controller';
 import { verifyAccessToken } from '../middlewares/jwtAuth';
 
@@ -18,6 +18,7 @@ const router = express.Router();
 
 router.post('/web-hook', getTransactionResponseFromPaystackWebhook);
 router.get('/call-back', getPaystackCallBack);
+router.get('/status-paystack/:reference', getPaystacktransactionStatus);
 
 router.use(verifyAccessToken);
 router.get('/user-transactions', getAllUserTransactionsWithQuery);
@@ -34,6 +35,5 @@ router.post('/initialize', creditUserAccount);
 
 router.post('/bank-transfer', bankTransfer);
 router.get('/banks', getBankDetailsAndCodes);
-router.post('/in-app-transfer', inAppTransfer);
 
 export default router;

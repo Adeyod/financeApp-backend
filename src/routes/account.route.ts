@@ -5,6 +5,7 @@ import {
   createNewAccount,
   getSingleUserAccountByAccountNumber,
   getReceiverAccountDetails,
+  getReceivingFundFlowAccountUserDetails,
 } from '../controllers/account.controller';
 import { verifyAccessToken } from '../middlewares/jwtAuth';
 
@@ -18,6 +19,10 @@ router.get('/user-account/:account_id', getSingleUserAccountByUserIdAndId);
 router.get(
   '/get-user-account/:account_number',
   getSingleUserAccountByAccountNumber
+);
+router.get(
+  '/get-receiving-user-details/:account_number',
+  getReceivingFundFlowAccountUserDetails
 );
 
 router.post('/user-account/create', createNewAccount);

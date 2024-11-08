@@ -1,6 +1,11 @@
 import { Job, Queue, Worker } from 'bullmq';
 import { Redis, RedisOptions } from 'ioredis';
-import { sendEmailVerification, sendPasswordReset } from './nodemailer';
+import {
+  sendEmailVerification,
+  sendMobileEmailVerification,
+  sendPasswordReset,
+  sendPasswordResetMobile,
+} from './nodemailer';
 import { EmailJobData } from '../constants/types';
 import { createBullBoard } from 'bull-board';
 import { BullMQAdapter } from 'bull-board/bullmqAdapter';
@@ -23,27 +28,51 @@ const queue = new Queue('emailQueue', { connection });
 const worker = new Worker<EmailJobData>(
   'emailQueue',
   async (job: Job<EmailJobData>) => {
-    const { email, first_name, link, type } = job.data;
+    const { email, first_name, link, type, device } = job.data;
     if (type === 'email-verification') {
-      const sendEmail = await sendEmailVerification({
-        email,
-        first_name,
-        link,
-      });
+      if (device === 'mobile-fund-flow') {
+        const sendEmail = await sendMobileEmailVerification({
+          email,
+          first_name,
+          token: Number(link),
+        });
 
-      console.log(`Email sent to ${email}`);
-      console.log('sendEmail from bullmq:', sendEmail);
-      return sendEmail;
+        console.log(`Email sent to ${email}`);
+        console.log('sendEmail from bullmq:', sendEmail);
+        return sendEmail;
+      } else {
+        const sendEmail = await sendEmailVerification({
+          email,
+          first_name,
+          link,
+        });
+
+        console.log(`Email sent to ${email}`);
+        console.log('sendEmail from bullmq:', sendEmail);
+        return sendEmail;
+      }
     } else if (type === 'forgot-password') {
-      const sendEmail = await sendPasswordReset({
-        first_name,
-        email,
-        link,
-      });
+      if (device === 'mobile-fund-flow') {
+        const sendEmail = await sendPasswordResetMobile({
+          email,
+          first_name,
+          token: Number(link),
+        });
 
-      console.log(`Email sent to ${email}`);
-      console.log('sendEmail from bullmq:', sendEmail);
-      return sendEmail;
+        console.log(`Email sent to ${email}`);
+        console.log('sendEmail from bullmq:', sendEmail);
+        return sendEmail;
+      } else {
+        const sendEmail = await sendPasswordReset({
+          first_name,
+          email,
+          link,
+        });
+
+        console.log(`Email sent to ${email}`);
+        console.log('sendEmail from bullmq:', sendEmail);
+        return sendEmail;
+      }
     }
   },
   { connection }

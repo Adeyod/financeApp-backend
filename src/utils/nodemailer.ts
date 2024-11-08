@@ -51,6 +51,33 @@ const sendEmailVerification = async ({
   }
 };
 
+const sendMobileEmailVerification = async ({
+  email,
+  first_name,
+  token,
+}: EmailType) => {
+  try {
+    const emailVerificationContent = getMailTemplate(
+      'emailTemplateMobile.ejs',
+      {
+        first_name,
+        verificationToken: token,
+      }
+    );
+    const info = await transporter.sendMail({
+      from: process.env.NODEMAILER_USER,
+      to: email,
+      subject: 'Email verification',
+      html: emailVerificationContent,
+    });
+
+    return info;
+  } catch (error: any) {
+    console.log(error);
+    throw new Error(error.message);
+  }
+};
+
 const sendPasswordReset = async ({ first_name, email, link }: EmailType) => {
   try {
     const passwordResetContent = getMailTemplate('resetPasswordTemplate.ejs', {
@@ -71,4 +98,36 @@ const sendPasswordReset = async ({ first_name, email, link }: EmailType) => {
   }
 };
 
-export { sendEmailVerification, sendPasswordReset };
+const sendPasswordResetMobile = async ({
+  first_name,
+  email,
+  token,
+}: EmailType) => {
+  try {
+    const passwordResetContent = getMailTemplate(
+      'resetPasswordTemplateMobile.ejs',
+      {
+        first_name,
+        token,
+      }
+    );
+
+    const info = await transporter.sendMail({
+      from: process.env.NODEMAILER_USER,
+      to: email,
+      subject: 'Password reset',
+      html: passwordResetContent,
+    });
+
+    return info;
+  } catch (error: any) {
+    throw new Error(error.message);
+  }
+};
+
+export {
+  sendPasswordResetMobile,
+  sendMobileEmailVerification,
+  sendEmailVerification,
+  sendPasswordReset,
+};

@@ -1,10 +1,15 @@
-import { AccountCreatedDetailsType } from '../constants/types';
+import {
+  AccountCreatedDetailsType,
+  NotificationProp,
+} from '../constants/types';
+import { createNotificationMessage } from '../repository/notifications';
 import {
   getAllUserAccountsUserId,
   createNewUserAccount,
   getSingleUserAccountUserIdAndId,
   getSingleUserAccountUsingAccountNumber,
   getReceiverAccount,
+  getReceivingFundFlowAccountDetails,
 } from '../services/account.service';
 import { AppError } from '../utils/app.error';
 import catchErrors from '../utils/tryCatch';
@@ -63,6 +68,23 @@ const getSingleUserAccountByAccountNumber = catchErrors(async (req, res) => {
   });
 });
 
+const getReceivingFundFlowAccountUserDetails = catchErrors(async (req, res) => {
+  const { account_number } = req.params;
+
+  const response = await getReceivingFundFlowAccountDetails(account_number);
+  if (!response) {
+    throw new Error('Error getting receiver account details');
+  }
+
+  console.log('controller:', response);
+
+  return res.status(200).json({
+    message: 'Receiver Account Details fetched successfully',
+    success: true,
+    receiverDetails: response,
+  });
+});
+
 const getReceiverAccountDetails = catchErrors(async (req, res) => {
   const { receivingAccount, bankCode } = await req.body;
 
@@ -71,7 +93,6 @@ const getReceiverAccountDetails = catchErrors(async (req, res) => {
     throw new Error('Error getting receiver account details');
   }
 
-  // console.log(response.data);
   const details = {
     account_number: response?.data?.data?.account_number,
     account_name: response?.data?.data?.account_name,
@@ -93,21 +114,25 @@ const createNewAccount = catchErrors(async (req, res) => {
 
   const createAccount = await createNewUserAccount(user.userId);
 
-  return res.json({
-    newAccount: createAccount,
-  });
+  const notificationObj: NotificationProp = {
+    title: 'New account number created successfully',
+    user_id: user.userId,
+    message: `A new account has been created successfully for you. Account number: ${createAccount[0].account_number}`,
+  };
+
+  const newNotification = await createNotificationMessage(notificationObj);
+  return;
+
+  // return res.json({
+  //   newAccount: createAccount,
+  // });
 });
 
 export {
+  getReceivingFundFlowAccountUserDetails,
   getReceiverAccountDetails,
   getSingleUserAccountByAccountNumber,
   createNewAccount,
   getAllUserAccountsByUserId,
   getSingleUserAccountByUserIdAndId,
 };
-
-/**
- * credit account
- * transfer money from one account to another
- * withdraw money from account to local bank
- */

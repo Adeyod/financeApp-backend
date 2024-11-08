@@ -8,6 +8,8 @@ import {
   LoginParams,
   UserWithAccountType,
   ChangePasswordType,
+  UserObjProp,
+  forgotPassProp,
 } from '../constants/types';
 import { generateCode, generateRandomCode } from '../utils/codes';
 import { VerificationCodeType } from '../constants/enumTypes';
@@ -33,10 +35,12 @@ import {
   createVerificationCode,
   deleteToken,
   findToken,
+  findTokenForMobile,
+  getOnlyToken,
 } from '../repository/verification.repository';
 import { AppError } from '../utils/app.error';
 
-const verifyNum = 15;
+const verifyNum = 6;
 const expireAt = TokenExpiration(30);
 const convertExpireDateToNumber = (dateString: string): number => {
   return new Date(dateString).getTime();
@@ -45,8 +49,15 @@ const convertExpireDateToNumber = (dateString: string): number => {
 const registerNewUser = async (
   payload: Payload
 ): Promise<UserWithAccountType> => {
-  const { first_name, last_name, email, phone_number, password, user_name } =
-    payload;
+  const {
+    first_name,
+    last_name,
+    email,
+    phone_number,
+    password,
+    user_name,
+    device,
+  } = payload;
 
   const existingUserResult = await findUserByEmail(email);
 
@@ -75,7 +86,6 @@ const registerNewUser = async (
   });
 
   const newUser = newUserResult[0];
-  console.log('newUser', newUser);
 
   if (!newUser) {
     throw new Error('Unable to register user');
@@ -101,30 +111,43 @@ const registerNewUser = async (
     throw new Error('Unable to save verification code');
   }
 
-  console.log('newVerificationCode', newVerificationCode);
-
   const { token: tokenDetails, expires_at } = newVerificationCode;
 
   const encodedExpiresAt = expires_at;
   // const encodedExpiresAt = encodeURIComponent(expires_at.toISOString());
 
-  // const link = `${FRONTEND_URL}/auth/email-verification/${others.id}/${tokenDetails}`;
-  const link = `${FRONTEND_URL}/email-verification?userId=${others.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
+  if (device === 'mobile-fund-flow') {
+    const jobData = {
+      email: others.email,
+      first_name: others.first_name,
+      link: tokenDetails,
+      type: 'email-verification',
+      device: device,
+    };
 
-  const jobData = {
-    email: others.email,
-    first_name: others.first_name,
-    link,
-    type: 'email-verification',
-  };
+    const mailSent = await queue.add('sendEmail', jobData, {
+      attempts: 5,
+      backoff: 10000,
+      removeOnComplete: true,
+    });
+  } else {
+    // const link = `${FRONTEND_URL}/auth/email-verification/${others.id}/${tokenDetails}`;
+    const link = `${FRONTEND_URL}/email-verification?userId=${others.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
 
-  const mailSent = await queue.add('sendEmail', jobData, {
-    attempts: 5,
-    backoff: 10000,
-    removeOnComplete: true,
-  });
+    const jobData = {
+      email: others.email,
+      first_name: others.first_name,
+      link,
+      type: 'email-verification',
+      device: device,
+    };
 
-  console.log('mailSent: ' + mailSent);
+    const mailSent = await queue.add('sendEmail', jobData, {
+      attempts: 5,
+      backoff: 10000,
+      removeOnComplete: true,
+    });
+  }
 
   const accountNumber = await generateAccountNumber();
 
@@ -135,8 +158,6 @@ const registerNewUser = async (
     accountNumber: accountString,
   });
 
-  console.log('userNewAccountSaved', userNewAccountSaved);
-
   const dataToSend = {
     userData: others as UserDocument,
     account: userNewAccountSaved[0],
@@ -145,15 +166,28 @@ const registerNewUser = async (
   return dataToSend;
 };
 
-const verifyEmail = async (
-  userId: string,
-  token: string
-): Promise<UserDocument> => {
-  const verificationResult = await findToken({
-    user_id: userId,
-    token,
-    purpose: VerificationCodeType.EmailVerification,
-  });
+const verifyEmail = async (userObj: UserObjProp): Promise<UserDocument> => {
+  let verificationResult;
+
+  if (userObj.device === 'mobile-fund-flow') {
+    console.log('Verifying');
+    console.log('token', userObj.token);
+    console.log('purpose', VerificationCodeType.EmailVerification);
+    verificationResult = await getOnlyToken({
+      token: userObj.token,
+      purpose: VerificationCodeType.EmailVerification,
+    });
+  } else {
+    verificationResult = await findToken({
+      user_id: userObj.userId || '',
+      token: userObj.token,
+      purpose: VerificationCodeType.EmailVerification,
+    });
+  }
+
+  if (!verificationResult) {
+    throw new AppError('Unable to find verification token', 404);
+  }
 
   const verificationDetails = verificationResult[0];
 
@@ -171,9 +205,6 @@ const verifyEmail = async (
 
   const currentTime = Date.now();
   const expiresAt = convertExpireDateToNumber(expires_at);
-
-  console.log('expiresAt', expiresAt);
-  console.log('currentTime', currentTime);
 
   if (currentTime > expiresAt) {
     await deleteToken({
@@ -198,8 +229,6 @@ const verifyEmail = async (
       purpose: VerificationCodeType.EmailVerification,
       id,
     });
-
-    console.log('verified:', deletedData[0]);
 
     const user = updateUser;
 
@@ -282,8 +311,6 @@ const logUserIn = async (
         removeOnComplete: true,
       });
 
-      console.log('sending email login part 1:', mailSent);
-
       throw new AppError('Please check your email to verify your account', 403);
     } else {
       const { user_id, expires_at } = activeToken;
@@ -291,7 +318,6 @@ const logUserIn = async (
       const currentTime = Date.now();
 
       const checkExpires = convertExpireDateToNumber(expires_at);
-      console.log(checkExpires);
       if (currentTime > checkExpires) {
         const deleteExpiredToken = await deleteToken({
           user_id,
@@ -337,8 +363,6 @@ const logUserIn = async (
           backoff: 10000,
           removeOnComplete: true,
         });
-
-        console.log('sending email login part 2:', mailSent);
 
         throw new AppError(
           'Please check your email to verify your account',
@@ -405,7 +429,6 @@ const sendEmailVerificationAgain = async (email: string): Promise<object> => {
     token: undefined,
     purpose: VerificationCodeType.EmailVerification,
   });
-  console.log('savedTokenQueryResult', savedTokenQueryResult);
 
   const savedToken = savedTokenQueryResult[0];
 
@@ -426,14 +449,12 @@ const sendEmailVerificationAgain = async (email: string): Promise<object> => {
     });
 
     const saveToken = saveTokenResult[0];
-    console.log('Newly generated saveToken', saveToken);
 
     if (!saveToken) {
       throw new Error('Unable to save token');
     }
 
     const encodedExpiresAt = encodeExpiresAt(saveToken.expires_at);
-    console.log('Newly encodedExpiresAt', encodedExpiresAt);
 
     // link = `${FRONTEND_URL}/auth/email-verification/${saveToken.user_id}/${saveToken.token}`;
     const link = `${FRONTEND_URL}/email-verification?userId=${saveToken.user_id}&token=${saveToken.token}&expires_at=${encodedExpiresAt}`;
@@ -443,7 +464,7 @@ const sendEmailVerificationAgain = async (email: string): Promise<object> => {
       purpose: VerificationCodeType.EmailVerification,
       id: savedToken.id,
     });
-    console.log('deleteTokenResult', deleteTokenResult);
+
     let token = await generateCode({
       first_name: user.first_name,
       last_name: user.last_name,
@@ -464,7 +485,6 @@ const sendEmailVerificationAgain = async (email: string): Promise<object> => {
     }
 
     const encodedExpiresAt = encodeExpiresAt(saveToken.expires_at);
-    console.log('Time check encodedExpiresAt', encodedExpiresAt);
 
     // link = `${FRONTEND_URL}/auth/email-verification/${saveToken.user_id}/${saveToken.token}`;
     const link = `${FRONTEND_URL}/email-verification?userId=${saveToken.user_id}&token=${saveToken.token}&expires_at=${encodedExpiresAt}`;
@@ -492,15 +512,18 @@ const sendEmailVerificationAgain = async (email: string): Promise<object> => {
   return sendTheMail;
 };
 
-const forgotPass = async (email: string): Promise<object> => {
-  const findUserResult = await findUserByEmail(email);
+const forgotPass = async (prop: forgotPassProp): Promise<object> => {
+  console.log('SERVICE:', prop.email);
+  console.log('SERVICE:', prop.device);
+  const findUserResult = await findUserByEmail(prop.email);
 
   const userFound = findUserResult[0];
 
   let link: string = '';
+  let passResetToken: string = '';
 
   if (!userFound) {
-    throw new AppError(`User with email ${email} not found`, 404);
+    throw new AppError(`User with email ${prop.email} not found`, 404);
   }
   if (!userFound.is_verified) {
     throw new AppError(
@@ -540,8 +563,12 @@ const forgotPass = async (email: string): Promise<object> => {
 
     const encodedExpiresAt = expires_at;
 
-    // link = `${FRONTEND_URL}/auth/reset-password/${user_id}/${tokenValue}`;
-    link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${tokenValue}&expiresAt=${encodedExpiresAt}`;
+    if (prop.device === 'mobile-fund-flow') {
+      passResetToken = tokenValue;
+    } else {
+      // link = `${FRONTEND_URL}/auth/reset-password/${user_id}/${tokenValue}`;
+      link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${tokenValue}&expiresAt=${encodedExpiresAt}`;
+    }
   } else if (tokenFound) {
     const currentTime = Date.now();
     const expiresAt = convertExpireDateToNumber(tokenFound.expires_at);
@@ -575,30 +602,59 @@ const forgotPass = async (email: string): Promise<object> => {
 
       const encodedExpiresAt = expires_at;
 
-      // link = `${FRONTEND_URL}/auth/reset-password/${user_id}/${tokenValue}`;
-      link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${tokenValue}&expiresAt=${encodedExpiresAt}`;
+      if (prop.device === 'mobile-fund-flow') {
+        passResetToken = tokenValue;
+      } else {
+        // link = `${FRONTEND_URL}/auth/reset-password/${user_id}/${tokenValue}`;
+        link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${tokenValue}&expiresAt=${encodedExpiresAt}`;
+      }
     } else {
       const { user_id, token, expires_at } = tokenFound;
 
       const encodedExpiresAt = expires_at;
 
-      // link = `${FRONTEND_URL}/auth/reset-password/${user_id}/${token}`;
-      link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${token}&expiresAt=${encodedExpiresAt}`;
+      if (prop.device === 'mobile-fund-flow') {
+        passResetToken = token;
+      } else {
+        // link = `${FRONTEND_URL}/auth/reset-password/${user_id}/${token}`;
+        link = `${FRONTEND_URL}/reset-password?userId=${user_id}&token=${token}&expiresAt=${encodedExpiresAt}`;
+      }
     }
   }
 
-  const jobData = {
-    email: userFound.email,
-    first_name: userFound.first_name,
-    link,
-    type: 'forgot-password',
-  };
+  // I NEED TO WORK ON THE LOGIC HERE
 
-  const sendPasswordResetLink = await queue.add('sendEmail', jobData, {
-    attempts: 5,
-    backoff: 10000,
-    removeOnComplete: true,
-  });
+  let sendPasswordResetLink;
+
+  if (prop.device === 'mobile-fund-flow') {
+    const jobData = {
+      email: userFound.email,
+      first_name: userFound.first_name,
+      link: passResetToken,
+      type: 'forgot-password',
+      device: prop.device,
+    };
+
+    sendPasswordResetLink = await queue.add('sendEmail', jobData, {
+      attempts: 5,
+      backoff: 10000,
+      removeOnComplete: true,
+    });
+  } else {
+    const jobData = {
+      email: userFound.email,
+      first_name: userFound.first_name,
+      link,
+      type: 'forgot-password',
+      device: prop.device,
+    };
+
+    sendPasswordResetLink = await queue.add('sendEmail', jobData, {
+      attempts: 5,
+      backoff: 10000,
+      removeOnComplete: true,
+    });
+  }
 
   return sendPasswordResetLink;
 };
@@ -606,13 +662,20 @@ const forgotPass = async (email: string): Promise<object> => {
 const passwordReset = async (
   payload: ResetPasswordDocument
 ): Promise<string> => {
-  const { user_id, token, password } = payload;
+  let findCodeResult;
 
-  const findCodeResult = await findToken({
-    user_id,
-    token,
-    purpose: VerificationCodeType.PasswordReset,
-  });
+  if (payload.device === 'mobile-fund-flow') {
+    findCodeResult = await findTokenForMobile({
+      token: payload.token,
+      purpose: VerificationCodeType.PasswordReset,
+    });
+  } else {
+    findCodeResult = await findToken({
+      user_id: payload.user_id,
+      token: payload.token,
+      purpose: VerificationCodeType.PasswordReset,
+    });
+  }
 
   const findCode = findCodeResult[0];
   if (!findCode) {
@@ -624,7 +687,7 @@ const passwordReset = async (
 
   if (currentTime > expiresAt) {
     const deleteCodeResult = await deleteToken({
-      user_id,
+      user_id: findCode.user_id,
       purpose: VerificationCodeType.PasswordReset,
       id: findCode.id,
     });
@@ -635,7 +698,7 @@ const passwordReset = async (
     );
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcrypt.hash(payload.password, 10);
 
   const result = await updateUserPassword({
     user_id: findCode.user_id,

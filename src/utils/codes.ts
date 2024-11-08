@@ -24,7 +24,7 @@ const generateCode = async ({
   const lastValue = last_name.charAt(0);
 
   const uniqueId = generateRandomCode(num);
-  code = `${uniqueId}-${firstValue}${lastValue}`;
+  code = `${uniqueId}`;
 
   return code;
 };
@@ -36,10 +36,14 @@ const generateReferenceCode = async (num: number) => {
   return response;
 };
 
-// const generateReferenceCode = async (num: number) => {
-//   const result = crypto.randomBytes(num).toString('hex').slice(0, num);
-//   const response = `ffw-${result}`;
-//   return response;
-// };
+const transactionLimit = () => ({
+  basic: 50000,
+  standard: 250000,
+});
 
-export { generateCode, generateRandomCode, generateReferenceCode };
+export {
+  transactionLimit,
+  generateCode,
+  generateRandomCode,
+  generateReferenceCode,
+};

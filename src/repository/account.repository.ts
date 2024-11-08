@@ -113,8 +113,6 @@ const getUserAccountByAccountNumber = async (
   user_id: string,
   account_number: string
 ): Promise<AccountCreatedDetailsType> => {
-  console.log('user_id', user_id);
-  console.log('account_number', account_number);
   const userAccount = await knexConnect<AccountCreatedDetailsType>('accounts')
     .select('*')
     .where('account_number', account_number)
@@ -131,7 +129,7 @@ const getUserAccountByAccountNumber = async (
 const getAccountByAccountNumberOnly = async (
   account_number: string
 ): Promise<AccountCreatedDetailsType> => {
-  console.log('account_number', account_number);
+  console.log('REPOSITORY', account_number);
   const userAccount = await knexConnect<AccountCreatedDetailsType>('accounts')
     .select('*')
     .where('account_number', account_number)
@@ -149,8 +147,10 @@ const updateAccountBalances = async ({
   receiver,
   amount,
   description,
+  receiver_account_name,
 }: UpdateTransferAccountType) => {
-  const reference_number = generateReferenceCode(10);
+  const reference_number = await generateReferenceCode(10);
+  console.log(reference_number);
   const newReceivingAccountBalance = Number(receiver.balance) + Number(amount);
   const newSendingAccountBalance = Number(sender.balance) - Number(amount);
   await knexConnect.transaction(async (trk) => {
@@ -173,6 +173,10 @@ const updateAccountBalances = async ({
       reference_number: reference_number,
       account_number: sender.account_number,
       receiving_account: receiver.id,
+      receiving_account_number: receiver.account_number,
+      receiver_account_name: receiver_account_name,
+      receiver_user_id: receiver.user_id,
+      receiving_bank_name: 'Fund Flow',
     });
   });
 
@@ -193,8 +197,6 @@ const updateAccountBalances = async ({
 
 const updateAccountBalance = async (data: MonnifyDataUpdate) => {
   // find transaction and update
-
-  console.log('NAME OF RECEIVER:', data.monnifyResponse.receiving_bank_name);
 
   // find account and update account balance
   const userAccount = await getAccountByAccountNumberOnly(data.account_number);

@@ -169,7 +169,12 @@ const updateUserTransaction = async (
     .where('reference_number', data.reference)
     .andWhere('account_number', data.account_number)
     .andWhere('user_id', data.user_id)
+    .insert({
+      sender_account_name: data.sender_account_name,
+      sender_bank_name: data.sender_bank,
+    })
     .update('transaction_status', 'completed')
+
     .returning('*');
 
   return result[0];
@@ -229,7 +234,33 @@ const updateBankData = async (
   return response;
 };
 
+const totalTransferredToday = async (user_id: string) => {
+  const userTodayTransactions = await knexConnect('transactions')
+    .where('user_id', user_id)
+    .andWhere('created_at', '>=', knexConnect.raw(`CURRENT_DATE`))
+    .andWhere(
+      'created_at',
+      '<',
+      knexConnect.raw(`CURRENT_DATE + INTERVAL '1 day'`)
+    )
+    .sum({
+      total_transferred_today: 'amount',
+    })
+    .first();
+
+  return userTodayTransactions?.total_transferred_today || 0;
+};
+
+const user = totalTransferredToday('7c7cce96-11ca-4ab7-8f40-b1b83ef72e9d');
+
+const getBal = async () => {
+  console.log('time:', await user);
+};
+
+getBal();
+
 export {
+  totalTransferredToday,
   saveLocalBankTransferTransaction,
   getSingleTransactionByTransactionIdAndUserId,
   getSingleTransactionsByAccountNumber,

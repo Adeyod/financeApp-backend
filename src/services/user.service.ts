@@ -1,6 +1,7 @@
 import { Request } from 'express';
 import {
   findUserById,
+  findUserByIdFirst,
   saveImageToDatabase,
 } from '../repository/user.repository';
 import { AppError } from '../utils/app.error';
@@ -8,15 +9,13 @@ import { PayloadWithoutPassword, UserInJwt } from '../constants/types';
 import { cloudinaryDestroy, handleFileUpload } from '../utils/cloudinary';
 
 const getUserDetailsById = async (user_id: string) => {
-  const userDetails = await findUserById(user_id);
-  const user = userDetails[0];
+  const userDetails = await findUserByIdFirst(user_id);
+  const user = userDetails;
   if (!user) {
     throw new AppError('User not found', 404);
   }
 
   const { password, ...others } = user;
-
-  console.log(others);
 
   return others;
 };
@@ -42,6 +41,7 @@ const userImageUpload = async (
   }
 
   const uploadImageToCloudinary = await handleFileUpload(req, res);
+  console.log(uploadImageToCloudinary);
 
   if (!uploadImageToCloudinary) {
     console.error('Unable to upload image to cloudinary');

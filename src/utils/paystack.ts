@@ -32,8 +32,6 @@ const payStackInitialized = async (transactionInfo: TransactionType) => {
     metadata: transactionInfo,
   };
 
-  console.log(paystackData);
-
   const response = await axios.post(
     'https://api.paystack.co/transaction/initialize',
     paystackData,
@@ -44,8 +42,6 @@ const payStackInitialized = async (transactionInfo: TransactionType) => {
       },
     }
   );
-
-  console.log('payStackInitialized response', response);
 
   const parsedData = JSON.parse(response.config.data);
 
@@ -86,7 +82,11 @@ const paystackCallBack = async (reference: string) => {
 
     const paystackResponse = await axios(url, { headers });
 
-    console.log('paystackCallBack', paystackResponse);
+    console.log('paystackCallBack DATA:', paystackResponse.data.data);
+    console.log(
+      'paystackCallBack DATA CUSTOMER:',
+      paystackResponse.data.data.customer
+    );
 
     if (paystackResponse.data.data.status === 'success') {
       const data: DataType = {
@@ -114,8 +114,6 @@ const paystackCallBack = async (reference: string) => {
           amount: data.amount,
         });
 
-        console.log(accountUpdate);
-
         return { transactionUpdate, accountUpdate };
       } else {
         transactionUpdate = await findTransactionByReference(data.reference);
@@ -134,26 +132,25 @@ const paystackCallBack = async (reference: string) => {
   }
 };
 
-const paystackResult = async (req: Request, res: Response) => {
+const paystackWebHook = async (req: Request, res: Response) => {
   try {
     const hash = crypto
       .createHmac('sha512', secret)
       .update(JSON.stringify(req.body))
       .digest('hex');
 
-    // console.log(hash, secret);
-
     if (hash == req.headers['x-paystack-signature']) {
       const event = req.body;
+      console.log('WEBHOOK:', event);
       // console.log('event:', event);
       if (event.event === 'charge.success') {
-        console.log('transaction successful');
         // GET ACCOUNT USING ACCOUNT ID AND USER ID
         const {
           reference,
           status,
           created_at,
           metadata: { amount, account_number, user_id, email },
+          authorization: { bank, account_name },
         } = event.data;
 
         const amt = parseFloat(amount.toString().replace(/,/g, ''));
@@ -175,15 +172,17 @@ const paystackResult = async (req: Request, res: Response) => {
             reference: reference,
             account_number: account_number,
             user_id: user_id,
+            sender_bank: bank,
+            sender_bank_account_name: account_name,
           };
 
           const transactionUpdate = await updateUserTransaction(data);
 
           // UPDATE THE ACCOUNT TO REFLECT THE AMOUNT CREDITED
           const result = await creditUserAccountByUserIdAndAccountId({
-            amount: amt,
-            account_number,
-            user_id,
+            amount: data.amount,
+            account_number: data.account_number,
+            user_id: data.user_id,
           });
 
           return { transactionUpdate, result };
@@ -325,11 +324,14 @@ const paystackCreateTransferRecipient = async (
   }
 };
 
+const getPaystackStatusResponse = async () => {};
+
 export {
+  getPaystackStatusResponse,
   paystackCreateTransferRecipient,
   paystackFetchReceivingAccount,
   payStackInitialized,
-  paystackResult,
+  paystackWebHook,
   paystackCallBack,
   // paystackBankTransfer,
   paystackBankCodes,

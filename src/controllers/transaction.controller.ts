@@ -1,3 +1,4 @@
+import { createNotificationMessage } from '../repository/notifications';
 import { findUserById } from '../repository/user.repository';
 import {
   getCallBackResponse,
@@ -10,23 +11,14 @@ import {
   transferMoneyRequest,
   getSingleUserTransaction,
   fundFlowTransfer,
+  getSingleBankDetailsByCode,
 } from '../services/transaction.service';
 import { AppError } from '../utils/app.error';
-import {
-  getMonnifyAccessKey,
-  initiateTransfer,
-  // validateOtp,
-} from '../utils/monnify';
 import catchErrors from '../utils/tryCatch';
 
 const getAllUserTransactionsWithQuery = catchErrors(async (req, res) => {
-  console.log(' I am running here');
   const userId = req.user;
   const { page, limit, searchParams } = req.query;
-
-  console.log('searchParams:', searchParams);
-  console.log('page:', page);
-  console.log('limit:', limit);
 
   const searchQuery = typeof searchParams === 'string' ? searchParams : '';
 
@@ -40,8 +32,6 @@ const getAllUserTransactionsWithQuery = catchErrors(async (req, res) => {
     Number(limit),
     searchQuery
   );
-
-  console.log(response);
 
   return res.status(200).json({
     message: 'Transactions fetched successfully',
@@ -68,7 +58,6 @@ const getUserSingleAccountTransactions = catchErrors(async (req, res) => {
     Number(limit),
     searchQuery
   );
-  console.log('results:', results);
 
   return res.status(200).json({
     message: `All transactions for ${account_number} were successfully fetched.`,
@@ -91,7 +80,7 @@ const creditUserAccount = catchErrors(async (req, res) => {
 
   const response = await userAccountCredit(account_number, amount, user.userId);
 
-  console.log('CONTROLLER CREDIT:', response.response);
+  console.log(response.response.data.data);
 
   return res.json({
     message: 'Initialized account credit successfully',
@@ -104,6 +93,8 @@ const getTransactionResponseFromPaystackWebhook = catchErrors(
   async (req, res) => {
     console.log('webhook is running');
     const paystackResponse = await getTransactionResponse(req, res);
+
+    console.log('WEBHOOK:', paystackResponse);
 
     return res.json({
       message: 'Account credited successfully',
@@ -130,6 +121,14 @@ const getPaystackCallBack = catchErrors(async (req, res) => {
   const account = accountUpdate[0];
 
   const { password, ...others } = accountHolder[0];
+
+  const payload = {
+    title: 'Your account credited successfully',
+    message: `Your account number ${account.id} has been credited successfully with ${response.transactionUpdate.amount} naira and this account has new balance of ${accountUpdate[0].balance}`,
+    user_id: accountUpdate[0].user_id,
+  };
+
+  const newNotification = await createNotificationMessage(payload);
 
   return res.status(200).json({
     message: 'Credited account successfully',
@@ -162,8 +161,17 @@ const bankTransfer = catchErrors(async (req, res) => {
     user_id: user.userId,
     narration,
   });
+
+  const payload = {
+    title: 'Your bank transfer was successful',
+    message: `You transferred ${response.amount} to ${response.receiving_account_number}. The tranfer was made from ${response.paying_account_number}.`,
+    user_id: user.userId,
+  };
+
+  if (response) {
+    const createNotification = await createNotificationMessage(payload);
+  }
 });
-const inAppTransfer = catchErrors(async (req, res) => {});
 
 const getBankDetailsAndCodes = catchErrors(async (req, res) => {
   const result = await getBankDetails();
@@ -208,6 +216,7 @@ const transferToFundFlowAccount = catchErrors(async (req, res) => {
     amount,
     selected_account_number,
     description,
+    receiver_account_name,
   } = req.body;
 
   const user = req.user;
@@ -222,7 +231,27 @@ const transferToFundFlowAccount = catchErrors(async (req, res) => {
     selected_account_number: selected_account_number,
     amount: amount,
     description: description,
+    receiver_account_name,
   });
+
+  if (response) {
+    const creditor = await findUserById(user.userId);
+
+    const payload = {
+      title: 'Transfer successful',
+      message: `You have successfully transferred ${amount} to ${receiver_account_name}.`,
+      user_id: user.userId,
+    };
+
+    const payload2 = {
+      title: 'Account credited successfully',
+      message: `Your account ${receiving_account_number} has been credited with the sum of ${amount} by ${creditor[0].first_name} ${creditor[0].last_name}.`,
+      user_id: response.receiver.user_id,
+    };
+
+    const newNotification = await createNotificationMessage(payload);
+    const notifyReceiver = await createNotificationMessage(payload2);
+  }
 
   return res.status(200).json({
     message: 'Transfer successful',
@@ -238,7 +267,6 @@ const getUserSingleTransaction = catchErrors(async (req, res) => {
   if (!user) {
     throw new AppError('User not authenticated', 400);
   }
-  console.log(transaction_id);
 
   const response = await getSingleUserTransaction(transaction_id, user.userId);
 
@@ -279,6 +307,14 @@ const transferToOtherBank = catchErrors(async (req, res) => {
     throw new Error('Failed to transfer money');
   }
 
+  const bankDetails = await getSingleBankDetailsByCode(bankCode);
+  const payload = {
+    title: 'Transfer successful',
+    message: `You have successfully transferred #${amount} from ${selectedAccountNumber} account to ${receiverDetails?.account_name}'s ${bankDetails.name} account ${receivingAccount}`,
+    user_id: user.userId,
+  };
+  const notifySender = await createNotificationMessage(payload);
+
   return res.status(200).json({
     message: 'Transfer successful',
     success: true,
@@ -287,7 +323,14 @@ const transferToOtherBank = catchErrors(async (req, res) => {
   });
 });
 
+const getPaystacktransactionStatus = catchErrors(async (req, res) => {
+  const { reference } = req.params;
+  console.log('CONTROLLER REFERENCE:', reference);
+  // const response = await getPaystackStatusResponse(reference)
+});
+
 export {
+  getPaystacktransactionStatus,
   transferToFundFlowAccount,
   getUserSingleTransaction,
   transferToOtherBank,
@@ -298,5 +341,4 @@ export {
   getUserSingleAccountTransactions,
   creditUserAccount,
   bankTransfer,
-  inAppTransfer,
 };

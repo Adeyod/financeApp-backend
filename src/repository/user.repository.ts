@@ -38,6 +38,15 @@ const findUserById = async (user_id: string) => {
   return user;
 };
 
+const findUserByIdFirst = async (user_id: string) => {
+  const user = await knexConnect<UserDocument>('users')
+    .select('*')
+    .where('id', user_id)
+    .first();
+
+  return user;
+};
+
 const findUserByUsername = async (user_name: string) => {
   const user = await knexConnect<UserDocument>('users')
     .select('*')
@@ -92,7 +101,7 @@ const sendSMS = async ({ code, phone_number }: SmsType): Promise<void> => {
       from: '+12345678901',
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
   }
 };
 
@@ -103,12 +112,18 @@ const saveImageToDatabase = async (
   },
   user_id: string
 ): Promise<PayloadWithoutPassword> => {
-  const result = await knexConnect<PayloadWithoutPassword>('users')
+  const result = await knexConnect<UserDocument>('users')
     .update({ profile_image })
     .where('id', user_id)
     .returning('*');
 
-  return result[0];
+  if (!result) {
+    throw new AppError('User not found', 404);
+  }
+
+  const { password, ...others } = result[0];
+
+  return others;
 };
 
 export {
@@ -120,4 +135,5 @@ export {
   findUserByEmail,
   updateUserVerification,
   sendSMS,
+  findUserByIdFirst,
 };

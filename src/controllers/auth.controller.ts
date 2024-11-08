@@ -2,6 +2,7 @@ import {
   ComparePassType,
   PayloadForLoginInput,
   User,
+  UserObjProp,
 } from '../constants/types';
 import { joiValidation } from '../utils/validation';
 import {
@@ -28,6 +29,10 @@ const registerUser = catchErrors(async (req, res) => {
     confirm_password,
   }: User = req.body;
 
+  const device = Array.isArray(req.headers['x-fund-flow'])
+    ? req.headers['x-fund-flow'][0]
+    : req.headers['x-fund-flow'];
+
   const payload = {
     first_name,
     user_name,
@@ -42,7 +47,9 @@ const registerUser = catchErrors(async (req, res) => {
 
   const { success, value } = validateInputs;
 
-  const user = await registerNewUser(value);
+  const valueInput = { ...value, device: device };
+
+  const user = await registerNewUser(valueInput);
 
   return res.status(201).json({
     message:
@@ -53,9 +60,31 @@ const registerUser = catchErrors(async (req, res) => {
 });
 
 const verifyUserEmail = catchErrors(async (req, res) => {
-  const { userId, token } = req.params;
+  const device = Array.isArray(req.headers['x-fund-flow'])
+    ? req.headers['x-fund-flow'][0]
+    : req.headers['x-fund-flow'] || '';
 
-  const isVerified = await verifyEmail(userId, token);
+  console.log(device);
+
+  let userObj: UserObjProp = {
+    token: '',
+    userId: '',
+    device: device,
+  };
+
+  if (device === 'mobile-fund-flow') {
+    const token = (req.query.token as string) || '';
+    console.log('controller:', token);
+    userObj = { ...userObj, token };
+  } else {
+    const userId = (req.query.userId as string) || '';
+    const token = (req.query.token as string) || '';
+    userObj = { ...userObj, userId, token };
+  }
+
+  const isVerified = await verifyEmail(userObj);
+
+  console.log('isVerified', isVerified);
 
   return res.status(200).json({
     message: `${isVerified.first_name}, your email has been verified successfully. Please login to continue.`,
@@ -67,7 +96,7 @@ const verifyUserEmail = catchErrors(async (req, res) => {
 const loginUser = catchErrors(async (req, res) => {
   const { login_input, password }: PayloadForLoginInput = req.body;
 
-  console.log(req.headers['x-fund-flow']);
+  console.log(req.body);
 
   const payload = {
     login_input,
@@ -93,8 +122,8 @@ const loginUser = catchErrors(async (req, res) => {
     return res
       .cookie('token', token, {
         httpOnly: true,
-        // sameSite: 'none', // Needed during production or deployment for HTTPS
-        // secure: true, // Needed during production or deployment for HTTPS
+        sameSite: 'none', // Needed during production or deployment for HTTPS
+        secure: true, // Needed during production or deployment for HTTPS
         maxAge: 15 * 24 * 60 * 60 * 1000,
       })
       .status(200)
@@ -127,11 +156,22 @@ const resendEmailVerificationLink = catchErrors(async (req, res) => {
 const forgotPassword = catchErrors(async (req, res) => {
   const { email } = req.body;
 
+  const device = Array.isArray(req.headers['x-fund-flow'])
+    ? req.headers['x-fund-flow'][0]
+    : req.headers['x-fund-flow'] || '';
+
+  console.log(device);
+
   const validateInputs = joiValidation(email, 'forgot-password');
 
   const { success, value } = validateInputs;
 
-  const forgotPasswordResult = await forgotPass(value);
+  const valueProp = { email: value, device };
+
+  console.log('CONTROLLER:', value);
+  console.log('CONTROLLER:', valueProp);
+
+  const forgotPasswordResult = await forgotPass(valueProp);
 
   return res.status(200).json({
     success: true,
@@ -141,8 +181,33 @@ const forgotPassword = catchErrors(async (req, res) => {
 });
 
 const resetPassword = catchErrors(async (req, res) => {
-  const { userId, token } = req.params;
+  // const { userId, token } = req.params;
   const { password, confirm_password }: ComparePassType = req.body;
+
+  console.log(password);
+  console.log(confirm_password);
+
+  const device = Array.isArray(req.headers['x-fund-flow'])
+    ? req.headers['x-fund-flow'][0]
+    : req.headers['x-fund-flow'] || '';
+
+  console.log(device);
+
+  let userObj: UserObjProp = {
+    token: '',
+    userId: '',
+    device: device,
+  };
+
+  if (device === 'mobile-fund-flow') {
+    const token = (req.query.token as string) || '';
+    console.log('controller:', token);
+    userObj = { ...userObj, token };
+  } else {
+    const userId = (req.query.userId as string) || '';
+    const token = (req.query.token as string) || '';
+    userObj = { ...userObj, userId, token };
+  }
 
   const inputContent = {
     password,
@@ -154,8 +219,9 @@ const resetPassword = catchErrors(async (req, res) => {
   const { success, value } = validateInputs;
 
   const payload = {
-    user_id: userId,
-    token: token,
+    user_id: userObj.userId,
+    token: userObj.token,
+    device: userObj.device,
     password: value.password,
   };
 

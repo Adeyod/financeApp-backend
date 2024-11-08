@@ -27,7 +27,7 @@ type ComparePassType = {
 };
 
 type TokenSearchType = {
-  user_id: string;
+  user_id?: string;
   purpose: string;
   token?: string;
 };
@@ -56,6 +56,7 @@ type AccountCreatedDetailsType = {
 type UserWithAccountType = {
   userData: UserDocument;
   account: AccountCreatedDetailsType;
+  device?: string;
 };
 
 type Payload = {
@@ -65,6 +66,13 @@ type Payload = {
   email: string;
   phone_number: string;
   password: string;
+  device?: string;
+};
+
+type Receiver = {
+  account_number: string;
+  account_name: string;
+  bank_code: string;
 };
 
 type PayloadForLoginInput = {
@@ -78,6 +86,7 @@ type UserDocument = Payload & {
   is_verified: boolean;
   updated_at: string;
   two_fa_enabled: boolean;
+  account_tier: string;
   biometric_enabled: boolean;
   is_phone_verified: boolean;
   profile_image?: {
@@ -107,6 +116,9 @@ type DataType = {
   reference: string;
   account_number: string;
   user_id: string;
+  sender_bank?: string;
+  sender_account_name?: string;
+  sender_account_number?: string;
 };
 
 type VerificationParams = Pick<
@@ -139,7 +151,8 @@ type User = ComparePassType & {
 };
 
 type ResetPasswordDocument = {
-  user_id: string;
+  user_id?: string;
+  device: string;
   token: string;
   password: string;
 };
@@ -164,7 +177,8 @@ type ChangePasswordType = {
 type EmailType = {
   email: string;
   first_name: string;
-  link: string;
+  link?: string;
+  token?: number;
 };
 
 type EmailJobData = {
@@ -172,6 +186,7 @@ type EmailJobData = {
   first_name: string;
   link: string;
   type: 'email-verification' | 'forgot-password';
+  device?: string;
 };
 
 type AccountCredit = {
@@ -206,6 +221,9 @@ type TransactionDetails = {
   receiving_account?: string;
   receiving_account_number: string;
   receiver_account_name: string;
+  sender_bank_name: string;
+  sender_account_name: string;
+  sender_account_number: string;
 };
 
 type InitializationType = {
@@ -324,6 +342,7 @@ type FundFlowTransferData = {
   selected_account_number: string;
   amount: string;
   description: string;
+  receiver_account_name: string;
 };
 
 type UpdateTransferAccountType = {
@@ -331,6 +350,7 @@ type UpdateTransferAccountType = {
   receiver: AccountCreatedDetailsType;
   amount: string;
   description: string;
+  receiver_account_name: string;
 };
 
 type MonnifyTransferInitialization = {
@@ -347,7 +367,38 @@ type MonnifyTransferInitialization = {
   reference: string;
 };
 
+type UserObjProp = {
+  userId?: string;
+  token: string;
+  device: string;
+};
+
+type forgotPassProp = {
+  email: string;
+  device: string;
+};
+
+type NotificationProp = {
+  receiver?: string;
+  title: string;
+  user_id?: string;
+  message: string;
+};
+
+type NotificationDocument = NotificationProp & {
+  id: string;
+  is_read: boolean;
+  created_at: string;
+  updated_at: string;
+  receiver: string;
+};
+
 export {
+  NotificationDocument,
+  NotificationProp,
+  forgotPassProp,
+  UserObjProp,
+  Receiver,
   MonnifyDataUpdate,
   MonnifyTransferInitialization,
   UpdateTransferAccountType,

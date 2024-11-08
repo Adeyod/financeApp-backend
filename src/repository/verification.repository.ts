@@ -31,12 +31,37 @@ const findToken = async ({ user_id, purpose, token }: TokenSearchType) => {
       purpose,
     });
 
-  console.log('I am checking for token');
   if (token) {
     query = query.andWhere({ token });
   }
   const getToken = await query;
   return getToken as VerificationQuery[];
+};
+
+const findTokenForMobile = async ({ purpose, token }: TokenSearchType) => {
+  const query = await knexConnect<VerificationQuery>('verification_code')
+    .select('*')
+    .where({
+      token,
+      purpose,
+    });
+
+  return query as VerificationQuery[];
+};
+
+const getOnlyToken = async ({ token, purpose }: TokenSearchType) => {
+  console.log('getting only token');
+  const query = await knexConnect<VerificationQuery>('verification_code')
+    .select('*')
+    .where({
+      token,
+      purpose,
+    });
+
+  console.log(query);
+
+  // const getToken = await query;
+  return query as VerificationQuery[];
 };
 
 const deleteToken = async ({ user_id, purpose, id }: DeleteTokenType) => {
@@ -51,4 +76,10 @@ const deleteToken = async ({ user_id, purpose, id }: DeleteTokenType) => {
   return deleteData;
 };
 
-export { createVerificationCode, deleteToken, findToken };
+export {
+  createVerificationCode,
+  deleteToken,
+  findToken,
+  getOnlyToken,
+  findTokenForMobile,
+};

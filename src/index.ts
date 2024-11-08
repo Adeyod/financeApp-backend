@@ -9,6 +9,7 @@ import { errorHandler } from './middlewares/errorHandler';
 import authRoutes from './routes/auth.route';
 import userRoutes from './routes/user.route';
 import accountRoutes from './routes/account.route';
+import notificationRoutes from './routes/notification.route';
 import transactionRoutes from './routes/transaction.route';
 import { router } from './utils/queue';
 import authenticateCustomHeader from './middlewares/customHeader';
@@ -23,6 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(
   cors({
+    // origin: '*',
     origin: [process.env.FRONTEND_URL || '', process.env.MOBILE_URL || ''],
     credentials: true,
   })
@@ -34,6 +36,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/admin/queues', router);
 app.use(errorHandler);
 
@@ -50,5 +53,5 @@ ngrok
   .connect({ addr: port, authtoken: process.env.NGROK_AUTHTOKEN || '' })
   .then((listener) => console.log(`Ingress established at: ${listener.url()}`))
   .catch((error) => {
-    console.log(error);
+    console.error(error);
   });

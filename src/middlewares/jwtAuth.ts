@@ -45,10 +45,12 @@ const verifyAccessToken = async (
   next: NextFunction
 ): Promise<any> => {
   try {
+    console.log('HEADER:', req.headers['x-fund-flow']);
     let token;
 
     if (req.headers['x-fund-flow'] === 'web-fund-flow') {
       token = await req.cookies.token;
+      console.log(token);
     } else if (req.headers['x-fund-flow'] === 'mobile-fund-flow') {
       token = req.headers['authorization']?.split(' ')[1];
     }

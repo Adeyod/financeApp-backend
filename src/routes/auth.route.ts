@@ -19,8 +19,9 @@ router.post('/register', registerUser);
 router.get('/logout', logoutUser);
 router.post('/resend-email-verification', resendEmailVerificationLink);
 router.post('/forgot-password', forgotPassword);
-router.post('/reset-password/:userId/:token', resetPassword);
-router.get('/email-verification/:userId/:token', verifyUserEmail);
+router.post('/reset-password', resetPassword);
+router.get('/email-verification', verifyUserEmail);
+// router.get('/email-verification/:userId/:token', verifyUserEmail);
 
 router.use(verifyAccessToken);
 router.get('/phone-verification-code', sendPhoneVerificationCode);

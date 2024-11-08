@@ -6,7 +6,7 @@ const authenticateCustomHeader = async (
   res: Response,
   next: NextFunction
 ) => {
-  if (req.path === '/api/v1/payment/paystack/webhook') {
+  if (req.path === '/api/v1/payment/paystack/webhook' || '.ngrok-free.app') {
     return next();
   }
 

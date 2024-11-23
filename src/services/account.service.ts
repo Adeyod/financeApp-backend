@@ -1,12 +1,15 @@
+import { AccountCreatedDetailsType } from '../constants/types';
 import {
   generateAccountNumber,
   getAccountByAccountNumberOnly,
   saveAccountNumber,
+  getUserAccountForAdmin,
 } from '../repository/account.repository';
 import {
   getAllUserAccountsById,
   getSingleUserAccountsById,
   getUserAccountByAccountNumber,
+  fetchAllPlatformAccounts,
   // getSingleUserAccountsByAccountNumber
 } from '../repository/account.repository';
 import { findUserById } from '../repository/user.repository';
@@ -82,6 +85,7 @@ const getReceiverAccount = async (
 
   return paystackResponse;
 };
+
 const getReceivingFundFlowAccountDetails = async (receivingAccount: string) => {
   const response = await getAccountByAccountNumberOnly(receivingAccount);
   const userName = await findUserById(response.user_id);
@@ -94,7 +98,35 @@ const getReceivingFundFlowAccountDetails = async (receivingAccount: string) => {
   return userObj;
 };
 
+const getAllAccountsOnPlatform = async (
+  page: number = 1,
+  limit: number = 10,
+  searchParams: string
+): Promise<{ totalCount: number; accounts: AccountCreatedDetailsType[] }> => {
+  const offset = (page - 1) * limit;
+
+  const accounts = await fetchAllPlatformAccounts(limit, offset, searchParams);
+
+  return {
+    totalCount: accounts.totalCount,
+    accounts: accounts.accounts,
+  };
+};
+
+const fetchSingleAccountOfAUserForAdmin = async (
+  userId: string,
+  account_id: string
+) => {
+  const response = await getUserAccountForAdmin(userId, account_id);
+
+  const { password, ...others } = response;
+
+  return others;
+};
+
 export {
+  fetchSingleAccountOfAUserForAdmin,
+  getAllAccountsOnPlatform,
   getReceivingFundFlowAccountDetails,
   getReceiverAccount,
   getSingleUserAccountUsingAccountNumber,

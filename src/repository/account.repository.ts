@@ -6,6 +6,7 @@ import {
   MonnifyDataUpdate,
   TransactionDetails,
   UpdateTransferAccountType,
+  UserDocument,
 } from '../constants/types';
 import { knexConnect } from '../knex-db/knex';
 import { AppError } from '../utils/app.error';
@@ -106,6 +107,20 @@ const getSingleUserAccountsById = async (
   if (!userAccount) {
     throw new AppError('Account not found', 404);
   }
+  return userAccount;
+};
+
+const getUserAccountForAdmin = async (
+  user_id: string,
+  account_id: string
+): Promise<AccountCreatedDetailsType & UserDocument> => {
+  const userAccount = await knexConnect<AccountCreatedDetailsType>('accounts')
+    .select('accounts.*', 'users.*')
+    .join('users', 'accounts.user_id', 'users.id')
+    .where('accounts.id', account_id)
+    .andWhere('accounts.user_id', user_id)
+    .first();
+
   return userAccount;
 };
 
@@ -231,7 +246,46 @@ const updateAccountBalance = async (data: MonnifyDataUpdate) => {
   return response;
 };
 
+const fetchAllPlatformAccounts = async (
+  limit: number = 10,
+  offset: number = 0,
+  searchParams: string
+) => {
+  const baseQuery = knexConnect<AccountCreatedDetailsType>('accounts');
+
+  if (searchParams) {
+    baseQuery.andWhere((qb) => {
+      qb.where(knexConnect.raw('account_number'), 'ILIKE', `%${searchParams}%`)
+        .orWhere('balance', 'ILIKE', `%${searchParams}%`)
+        .orWhere('id', 'ILIKE', `%${searchParams}%`)
+        .orWhere('user_id', 'ILIKE', `%${searchParams}%`)
+        .orWhere('balance', 'ILIKE', `%${searchParams}%`);
+    });
+  }
+
+  const totalCountResult = await baseQuery
+    .clone()
+    .count<{ total: string }[]>('* as total')
+    .first();
+
+  const totalCount = totalCountResult
+    ? parseInt(totalCountResult.total, 10)
+    : 0;
+
+  const accounts = await baseQuery
+    .clone()
+    .offset(offset)
+    .limit(limit)
+    .orderBy('created_at', 'desc');
+
+  console.log('accounts:', accounts);
+
+  return { totalCount, accounts };
+};
+
 export {
+  getUserAccountForAdmin,
+  fetchAllPlatformAccounts,
   updateAccountBalance,
   getAccountByAccountNumberOnly,
   updateAccountBalances,

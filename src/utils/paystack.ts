@@ -20,6 +20,7 @@ import {
   updateBankData,
   updateUserTransaction,
 } from '../repository/transaction.repository';
+import { createNotificationMessage } from '../repository/notifications';
 
 const secret = process.env.PAYSTACK_TEST_SECRET_KEY || '';
 
@@ -114,6 +115,15 @@ const paystackCallBack = async (reference: string) => {
           amount: data.amount,
         });
 
+        // notification here
+        const payload = {
+          title: 'Credit successful',
+          message: `You have successfully credited ${data.amount} to ${data.account_number}.`,
+          user_id: data.user_id,
+        };
+
+        const newNotification = await createNotificationMessage(payload);
+
         return { transactionUpdate, accountUpdate };
       } else {
         transactionUpdate = await findTransactionByReference(data.reference);
@@ -184,6 +194,15 @@ const paystackWebHook = async (req: Request, res: Response) => {
             account_number: data.account_number,
             user_id: data.user_id,
           });
+
+          // notification here
+          const payload = {
+            title: 'Credit successful',
+            message: `You have successfully credited ${data.amount} to ${data.account_number}.`,
+            user_id: data.user_id,
+          };
+
+          const newNotification = await createNotificationMessage(payload);
 
           return { transactionUpdate, result };
         } else {

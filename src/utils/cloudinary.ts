@@ -5,7 +5,7 @@ import {
 } from 'cloudinary';
 import fs from 'fs';
 import dotenv from 'dotenv';
-import { rejects } from 'assert';
+// import { rejects } from 'assert';
 dotenv.config();
 
 cloudinary.config({
@@ -101,7 +101,7 @@ const handleFileUpload = async (req: any, res: any) => {
     if (req.files && req.files.length > 1) {
       newPath = await multipleFileUpload(req.files, res);
     } else if (req.files && req.files.length === 1) {
-      newPath = await multipleFileUpload(req.files[0], res);
+      newPath = await singleFileUpload(req.files[0], res);
     }
 
     return newPath;

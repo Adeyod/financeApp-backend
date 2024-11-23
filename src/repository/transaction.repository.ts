@@ -7,8 +7,10 @@ import {
   BankDataReturnType,
   BankDataType,
   MonnifyPendingStatus,
+  TransactionType,
 } from '../constants/types';
 import { knexConnect } from '../knex-db/knex';
+import { AppError } from '../utils/app.error';
 import { getUserAccountByAccountNumber } from './account.repository';
 
 const userTransactionsDetails = async (
@@ -52,6 +54,147 @@ const userTransactionsDetails = async (
     .orderBy('created_at', 'desc');
 
   return { totalCount, transactions };
+};
+
+const platformCompletedTransactionsDetails = async (
+  limit: number = 10,
+  offset: number = 0,
+  searchParams: string
+): Promise<{ totalCount: number; transactions: TransactionDetails[] }> => {
+  const baseQuery = knexConnect<TransactionDetails>('transactions').where(
+    'transaction_status',
+    'completed'
+  );
+
+  if (searchParams) {
+    baseQuery.andWhere((qb) => {
+      qb.where(
+        knexConnect.raw('transaction_type::text'),
+        'ILIKE',
+        `%${searchParams}%`
+      )
+        .orWhere('transaction_status', 'ILIKE', `%${searchParams}%`)
+        .orWhere('description', 'ILIKE', `%${searchParams}%`)
+        .orWhere('account_number', 'ILIKE', `%${searchParams}%`)
+        .orWhere(knexConnect.raw('amount::text'), 'ILIKE', `%${searchParams}%`);
+    });
+  }
+
+  const totalCountResult = await baseQuery
+    .clone()
+    .count<{ total: string }[]>('* as total')
+    .first();
+
+  const totalCount = totalCountResult
+    ? parseInt(totalCountResult.total, 10)
+    : 0;
+
+  const transactions = await baseQuery
+    .clone()
+    .offset(offset)
+    .limit(limit)
+    .orderBy('created_at', 'desc');
+
+  return { totalCount, transactions };
+};
+
+const platformPendingTransactionsDetails = async (
+  limit: number = 10,
+  offset: number = 0,
+  searchParams: string
+): Promise<{ totalCount: number; transactions: TransactionDetails[] }> => {
+  const baseQuery = knexConnect<TransactionDetails>('transactions').where(
+    'transaction_status',
+    'pending'
+  );
+
+  if (searchParams) {
+    baseQuery.andWhere((qb) => {
+      qb.where(
+        knexConnect.raw('transaction_type::text'),
+        'ILIKE',
+        `%${searchParams}%`
+      )
+        .orWhere('transaction_status', 'ILIKE', `%${searchParams}%`)
+        .orWhere('description', 'ILIKE', `%${searchParams}%`)
+        .orWhere('account_number', 'ILIKE', `%${searchParams}%`)
+        .orWhere(knexConnect.raw('amount::text'), 'ILIKE', `%${searchParams}%`);
+    });
+  }
+
+  const totalCountResult = await baseQuery
+    .clone()
+    .count<{ total: string }[]>('* as total')
+    .first();
+
+  const totalCount = totalCountResult
+    ? parseInt(totalCountResult.total, 10)
+    : 0;
+
+  const transactions = await baseQuery
+    .clone()
+    .offset(offset)
+    .limit(limit)
+    .orderBy('created_at', 'desc');
+
+  return { totalCount, transactions };
+};
+
+const platformTransactionsDetails = async (
+  limit: number = 10,
+  offset: number = 0,
+  searchParams: string
+): Promise<{ totalCount: number; transactions: TransactionDetails[] }> => {
+  const baseQuery = knexConnect<TransactionDetails>('transactions');
+
+  if (searchParams) {
+    baseQuery.andWhere((qb) => {
+      qb.where(
+        knexConnect.raw('transaction_type::text'),
+        'ILIKE',
+        `%${searchParams}%`
+      )
+        .orWhere('transaction_status', 'ILIKE', `%${searchParams}%`)
+        // .orWhere('amount', 'ILIKE', `%${searchParams}%`)
+        .orWhere('description', 'ILIKE', `%${searchParams}%`)
+        .orWhere('account_number', 'ILIKE', `%${searchParams}%`)
+        .orWhere(knexConnect.raw('amount::text'), 'ILIKE', `%${searchParams}%`);
+    });
+  }
+
+  const totalCountResult = await baseQuery
+    .clone()
+    .count<{ total: string }[]>('* as total')
+    .first();
+
+  const totalCount = totalCountResult
+    ? parseInt(totalCountResult.total, 10)
+    : 0;
+
+  const transactions = await baseQuery
+    .clone()
+    .offset(offset)
+    .limit(limit)
+    .orderBy('created_at', 'desc');
+
+  return { totalCount, transactions };
+};
+
+const fetchSingleTransactionDetailsForAdmin = async (
+  transaction_id: string
+): Promise<TransactionDetails> => {
+  const transaction = await knexConnect<TransactionDetails>('transactions')
+    .where('transactions.id', transaction_id)
+    .join('users', 'users.id', 'transactions.user_id')
+    .first();
+
+  console.log('transaction:', transaction);
+
+  if (!transaction) {
+    throw new AppError('Transaction not found', 404);
+  }
+
+  return transaction;
 };
 
 const getSingleTransactionsByAccountNumber = async (
@@ -164,7 +307,6 @@ const saveLocalBankTransferTransaction = async (data: MonnifyPendingStatus) => {
 const updateUserTransaction = async (
   data: DataType
 ): Promise<TransactionDetails> => {
-  // Step 1: Update the transaction status
   const result = await knexConnect<TransactionDetails>('transactions')
     .where('reference_number', data.reference)
     .andWhere('account_number', data.account_number)
@@ -182,6 +324,15 @@ const updateUserTransaction = async (
 
 const getAllBanks = async (): Promise<BankDataReturnType[]> => {
   const results = await knexConnect<BankDataReturnType>('banks').select('*');
+  return results;
+};
+
+const getTransactionWithReferenceNumber = async (
+  reference: string
+): Promise<TransactionDetails[]> => {
+  const results = await knexConnect<TransactionDetails>('transactions')
+    .select('*')
+    .where('reference_number', reference);
   return results;
 };
 
@@ -260,6 +411,8 @@ const getBal = async () => {
 getBal();
 
 export {
+  fetchSingleTransactionDetailsForAdmin,
+  platformTransactionsDetails,
   totalTransferredToday,
   saveLocalBankTransferTransaction,
   getSingleTransactionByTransactionIdAndUserId,
@@ -271,4 +424,7 @@ export {
   updateUserTransaction,
   saveInitializedCredit,
   getAllBanks,
+  getTransactionWithReferenceNumber,
+  platformCompletedTransactionsDetails,
+  platformPendingTransactionsDetails,
 };

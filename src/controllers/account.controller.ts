@@ -10,6 +10,8 @@ import {
   getSingleUserAccountUsingAccountNumber,
   getReceiverAccount,
   getReceivingFundFlowAccountDetails,
+  getAllAccountsOnPlatform,
+  fetchSingleAccountOfAUserForAdmin,
 } from '../services/account.service';
 import { AppError } from '../utils/app.error';
 import catchErrors from '../utils/tryCatch';
@@ -114,13 +116,15 @@ const createNewAccount = catchErrors(async (req, res) => {
 
   const createAccount = await createNewUserAccount(user.userId);
 
-  const notificationObj: NotificationProp = {
-    title: 'New account number created successfully',
-    user_id: user.userId,
-    message: `A new account has been created successfully for you. Account number: ${createAccount[0].account_number}`,
-  };
+  if (createAccount) {
+    const notificationObj: NotificationProp = {
+      title: 'New account number created successfully',
+      user_id: user.userId,
+      message: `A new account has been created successfully for you. Account number: ${createAccount[0].account_number}`,
+    };
 
-  const newNotification = await createNotificationMessage(notificationObj);
+    const newNotification = await createNotificationMessage(notificationObj);
+  }
   return;
 
   // return res.json({
@@ -128,7 +132,44 @@ const createNewAccount = catchErrors(async (req, res) => {
   // });
 });
 
+const getAllAccounts = catchErrors(async (req, res) => {
+  console.log('i am getting all accounts');
+  const { limit, page, searchParams } = req.query;
+  const searchQuery = typeof searchParams === 'string' ? searchParams : '';
+
+  const response = await getAllAccountsOnPlatform(
+    Number(page),
+    Number(limit),
+    searchQuery
+  );
+
+  return res.status(200).json({
+    message: 'Accounts fetched successfully',
+    success: true,
+    accounts: response,
+  });
+});
+
+const getSingleAccountOfAUserForAdmin = catchErrors(async (req, res) => {
+  console.log('i am getting here');
+  const { user_id, account_id } = req.params;
+  console.log('user_id', user_id);
+  console.log('account_id', account_id);
+
+  const response = await fetchSingleAccountOfAUserForAdmin(user_id, account_id);
+
+  if (response) {
+    return res.status(200).json({
+      message: 'Account info fetched successfully',
+      success: true,
+      accountDetails: response,
+    });
+  }
+});
+
 export {
+  getSingleAccountOfAUserForAdmin,
+  getAllAccounts,
   getReceivingFundFlowAccountUserDetails,
   getReceiverAccountDetails,
   getSingleUserAccountByAccountNumber,

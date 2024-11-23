@@ -1,4 +1,7 @@
-import { createNotificationMessage } from '../repository/notifications';
+import {
+  allUserNotifications,
+  createNotificationMessage,
+} from '../repository/notifications';
 import { findUserById } from '../repository/user.repository';
 import {
   getCallBackResponse,
@@ -12,6 +15,11 @@ import {
   getSingleUserTransaction,
   fundFlowTransfer,
   getSingleBankDetailsByCode,
+  getPaystackStatusResponse,
+  getAllPlatformTransactions,
+  getAllPlatformCompletedTransactions,
+  getAllPlatformPendingTransactions,
+  getSingleTransactionForAdmin,
 } from '../services/transaction.service';
 import { AppError } from '../utils/app.error';
 import catchErrors from '../utils/tryCatch';
@@ -37,6 +45,72 @@ const getAllUserTransactionsWithQuery = catchErrors(async (req, res) => {
     message: 'Transactions fetched successfully',
     success: true,
     transactions: response,
+  });
+});
+
+const getAllCompletedTransactions = catchErrors(async (req, res) => {
+  const { page, limit, searchParams } = req.query;
+
+  const searchQuery = typeof searchParams === 'string' ? searchParams : '';
+
+  const response = await getAllPlatformCompletedTransactions(
+    Number(page),
+    Number(limit),
+    searchQuery
+  );
+
+  return res.status(200).json({
+    message: 'Transactions fetched successfully',
+    success: true,
+    transactions: response,
+  });
+});
+
+const getAllPendingTransactions = catchErrors(async (req, res) => {
+  const { page, limit, searchParams } = req.query;
+
+  const searchQuery = typeof searchParams === 'string' ? searchParams : '';
+
+  const response = await getAllPlatformPendingTransactions(
+    Number(page),
+    Number(limit),
+    searchQuery
+  );
+
+  return res.status(200).json({
+    message: 'Transactions fetched successfully',
+    success: true,
+    transactions: response,
+  });
+});
+
+const getAllTransactions = catchErrors(async (req, res) => {
+  const { page, limit, searchParams } = req.query;
+
+  const searchQuery = typeof searchParams === 'string' ? searchParams : '';
+
+  const response = await getAllPlatformTransactions(
+    Number(page),
+    Number(limit),
+    searchQuery
+  );
+
+  return res.status(200).json({
+    message: 'Transactions fetched successfully',
+    success: true,
+    transactions: response,
+  });
+});
+
+const getSingleUserTransactionForAdmin = catchErrors(async (req, res) => {
+  const { transaction_id } = req.params;
+
+  const response = await getSingleTransactionForAdmin(transaction_id);
+
+  return res.status(200).json({
+    message: 'Transaction fetched successfully',
+    success: true,
+    transaction: response,
   });
 });
 
@@ -109,6 +183,8 @@ const getPaystackCallBack = catchErrors(async (req, res) => {
     throw new Error('Invalid reference provided');
   }
 
+  console.log('reference:', req.query.reference);
+
   const response = await getCallBackResponse(req.query.reference);
 
   if (!response) {
@@ -163,7 +239,7 @@ const bankTransfer = catchErrors(async (req, res) => {
   });
 
   const payload = {
-    title: 'Your bank transfer was successful',
+    title: 'You made a transfer',
     message: `You transferred ${response.amount} to ${response.receiving_account_number}. The tranfer was made from ${response.paying_account_number}.`,
     user_id: user.userId,
   };
@@ -183,32 +259,6 @@ const getBankDetailsAndCodes = catchErrors(async (req, res) => {
     banks: result,
   });
 });
-
-// const transferToOtherBank = catchErrors(async (req, res) => {
-//   const {
-//     receivingAccount,
-//     bankCode,
-//     receiverDetails,
-//     amount,
-//     selectedAccountNumber,
-//   } = req.body;
-//   const user = req.user;
-//   if (!user) {
-//     throw new AppError('Unable to verify user', 400);
-//   }
-
-//   const response = await transferMoneyRequest(
-//     user.userId,
-//     receiverDetails,
-//     receivingAccount,
-//     selectedAccountNumber,
-//     bankCode,
-//     amount
-//   );
-//   return res.status(200).json({
-//     message: 'Money transferred successfully',
-//   });
-// });
 
 const transferToFundFlowAccount = catchErrors(async (req, res) => {
   const {
@@ -239,14 +289,14 @@ const transferToFundFlowAccount = catchErrors(async (req, res) => {
 
     const payload = {
       title: 'Transfer successful',
-      message: `You have successfully transferred ${amount} to ${receiver_account_name}.`,
       user_id: user.userId,
+      message: `You have successfully transferred ${amount} to ${receiver_account_name}.`,
     };
 
     const payload2 = {
       title: 'Account credited successfully',
-      message: `Your account ${receiving_account_number} has been credited with the sum of ${amount} by ${creditor[0].first_name} ${creditor[0].last_name}.`,
       user_id: response.receiver.user_id,
+      message: `Your account ${receiving_account_number} has been credited with the sum of ${amount} by ${creditor[0].first_name} ${creditor[0].last_name}.`,
     };
 
     const newNotification = await createNotificationMessage(payload);
@@ -326,10 +376,14 @@ const transferToOtherBank = catchErrors(async (req, res) => {
 const getPaystacktransactionStatus = catchErrors(async (req, res) => {
   const { reference } = req.params;
   console.log('CONTROLLER REFERENCE:', reference);
-  // const response = await getPaystackStatusResponse(reference)
+  const response = await getPaystackStatusResponse(reference);
 });
 
 export {
+  getSingleUserTransactionForAdmin,
+  getAllCompletedTransactions,
+  getAllPendingTransactions,
+  getAllTransactions,
   getPaystacktransactionStatus,
   transferToFundFlowAccount,
   getUserSingleTransaction,

@@ -29,6 +29,11 @@ import {
   saveLocalBankTransferTransaction,
   totalTransferredToday,
   userTransactionsDetails,
+  getTransactionWithReferenceNumber,
+  platformTransactionsDetails,
+  platformCompletedTransactionsDetails,
+  platformPendingTransactionsDetails,
+  fetchSingleTransactionDetailsForAdmin,
 } from '../repository/transaction.repository';
 import { getMonnifyAccessKey, initiateTransfer } from '../utils/monnify';
 import { generateReferenceCode, transactionLimit } from '../utils/codes';
@@ -90,6 +95,73 @@ const getUserTransactionsWithUserId = async (
     totalCount: transactionResponse.totalCount, // or get it from the DB call
     transactions: transactionResponse.transactions,
   };
+};
+
+const getAllPlatformCompletedTransactions = async (
+  page: number = 1,
+  limit: number = 10,
+  searchParams: string
+): Promise<{ totalCount: number; transactions: TransactionDetails[] }> => {
+  // calculate offset(skip)
+  const offset = (page - 1) * limit;
+
+  const transactionResponse = await platformCompletedTransactionsDetails(
+    limit,
+    offset,
+    searchParams
+  );
+
+  return {
+    totalCount: transactionResponse.totalCount, // or get it from the DB call
+    transactions: transactionResponse.transactions,
+  };
+};
+
+const getAllPlatformPendingTransactions = async (
+  page: number = 1,
+  limit: number = 10,
+  searchParams: string
+): Promise<{ totalCount: number; transactions: TransactionDetails[] }> => {
+  const offset = (page - 1) * limit;
+
+  const transactionResponse = await platformPendingTransactionsDetails(
+    limit,
+    offset,
+    searchParams
+  );
+
+  return {
+    totalCount: transactionResponse.totalCount,
+    transactions: transactionResponse.transactions,
+  };
+};
+
+const getAllPlatformTransactions = async (
+  page: number = 1,
+  limit: number = 10,
+  searchParams: string
+): Promise<{ totalCount: number; transactions: TransactionDetails[] }> => {
+  const offset = (page - 1) * limit;
+
+  const transactionResponse = await platformTransactionsDetails(
+    limit,
+    offset,
+    searchParams
+  );
+
+  return {
+    totalCount: transactionResponse.totalCount,
+    transactions: transactionResponse.transactions,
+  };
+};
+const getSingleTransactionForAdmin = async (
+  transaction_id: string
+): Promise<TransactionDetails> => {
+  const transactionResponse = await fetchSingleTransactionDetailsForAdmin(
+    transaction_id
+  );
+
+  return transactionResponse;
 };
 
 const getTransactionResponse = async (req: Request, res: Response) => {
@@ -159,6 +231,16 @@ const getBankDetails = async () => {
 
 const getSingleBankDetailsByCode = async (code: string) => {
   const result = await getABank(code);
+
+  if (!result) {
+    throw new AppError('Unable to get bank details from the database', 404);
+  }
+
+  return result;
+};
+
+const getPaystackStatusResponse = async (reference: string) => {
+  const result = await getTransactionWithReferenceNumber(reference);
 
   if (!result) {
     throw new AppError('Unable to get bank details from the database', 404);
@@ -389,6 +471,8 @@ const fundFlowTransfer = async ({
 };
 
 export {
+  getSingleTransactionForAdmin,
+  getAllPlatformTransactions,
   getSingleBankDetailsByCode,
   fundFlowTransfer,
   getSingleUserTransaction,
@@ -400,4 +484,7 @@ export {
   getTransactionResponse,
   getUserTransactionsWithUserId,
   getSingleAccountTransactionsWithAccountNumber,
+  getPaystackStatusResponse,
+  getAllPlatformCompletedTransactions,
+  getAllPlatformPendingTransactions,
 };

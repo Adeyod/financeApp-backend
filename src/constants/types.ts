@@ -82,6 +82,7 @@ type PayloadForLoginInput = {
 
 type UserDocument = Payload & {
   id: string;
+  role: 'customer' | 'admin' | 'super_admin';
   created_at: string;
   is_verified: boolean;
   updated_at: string;
@@ -391,6 +392,7 @@ type NotificationDocument = NotificationProp & {
   created_at: string;
   updated_at: string;
   receiver: string;
+  is_viewed: boolean;
 };
 
 export {

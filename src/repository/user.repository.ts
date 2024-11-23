@@ -10,6 +10,7 @@ import {
 } from '../constants/types';
 import { knexConnect } from '../knex-db/knex';
 import { AppError } from '../utils/app.error';
+import { createNotificationMessage } from './notifications';
 
 const updateUserVerification = async (user_id: string) => {
   const updateResult = await knexConnect<UserDocument>('users')
@@ -45,6 +46,67 @@ const findUserByIdFirst = async (user_id: string) => {
     .first();
 
   return user;
+};
+
+const findCustomerForAdmin = async (user_id: string) => {
+  const userDetails = await knexConnect<UserDocument>('users')
+    .select('users.*')
+    .where('users.id', user_id)
+    .andWhere('users.role', 'customer')
+    .first();
+
+  if (!userDetails) {
+    throw new AppError('User not found.', 404);
+  }
+
+  const { password, ...others } = userDetails;
+
+  const accounts = await knexConnect<AccountCreatedDetailsType>('accounts')
+    .select('*')
+    .where('user_id', user_id);
+
+  return { user: others, accounts };
+};
+
+const findAdminForSuperAdmin = async (user_id: string) => {
+  const userDetails = await knexConnect<UserDocument>('users')
+    .select('users.*')
+    .where('users.id', user_id)
+    .andWhere('users.role', 'admin')
+    .first();
+
+  if (!userDetails) {
+    throw new AppError('User not found.', 404);
+  }
+
+  const { password, ...others } = userDetails;
+
+  const accounts = await knexConnect<AccountCreatedDetailsType>('accounts')
+    .select('*')
+    .where('user_id', user_id);
+
+  return { user: others, accounts };
+};
+
+const adminChangedToCustomer = async (admin_id: string) => {
+  const userDetails = await knexConnect<UserDocument>('users')
+    .update('role', 'customer')
+    .where('users.id', admin_id)
+    .andWhere('users.role', 'admin');
+
+  if (!userDetails) {
+    throw new AppError('User not found.', 404);
+  }
+
+  const payload = {
+    title: 'Role Change Notification',
+    message: `Your role has been changed to a customer.`,
+    user_id: admin_id,
+  };
+
+  const newNotification = await createNotificationMessage(payload);
+
+  return userDetails;
 };
 
 const findUserByUsername = async (user_name: string) => {
@@ -126,7 +188,89 @@ const saveImageToDatabase = async (
   return others;
 };
 
+const findAllUsers = async (): Promise<UserDocument[]> => {
+  const result = await knexConnect<UserDocument>('users').select('*');
+
+  return result;
+};
+
+const findAllAdmins = async (
+  limit: number = 10,
+  offset: number = 0,
+  searchParams: string
+): Promise<{ totalCount: number; result: UserDocument[] }> => {
+  const baseQuery = knexConnect<UserDocument>('users').where('role', 'admin');
+
+  if (searchParams) {
+    baseQuery.andWhere((qb) => {
+      qb.where(knexConnect.raw('user_name'), 'ILIKE', `%${searchParams}%`)
+        .orWhere('email', 'ILIKE', `%${searchParams}%`)
+        .orWhere('first_name', 'ILIKE', `%${searchParams}%`)
+        .orWhere('last_name', 'ILIKE', `%${searchParams}%`);
+    });
+  }
+
+  const totalCountResult = await baseQuery
+    .clone()
+    .count<{ total: string }[]>('* as total')
+    .first();
+
+  const totalCount = totalCountResult
+    ? parseInt(totalCountResult.total, 10)
+    : 0;
+
+  const result = await baseQuery
+    .clone()
+    .offset(offset)
+    .limit(limit)
+    .orderBy('created_at', 'desc');
+
+  return { totalCount, result };
+};
+
+const findAllCustomers = async (
+  limit: number = 10,
+  offset: number = 0,
+  searchParams: string
+): Promise<{ totalCount: number; result: UserDocument[] }> => {
+  const baseQuery = knexConnect<UserDocument>('users').where(
+    'role',
+    'customer'
+  );
+
+  if (searchParams) {
+    baseQuery.andWhere((qb) => {
+      qb.where(knexConnect.raw('user_name'), 'ILIKE', `%${searchParams}%`)
+        .orWhere('email', 'ILIKE', `%${searchParams}%`)
+        .orWhere('first_name', 'ILIKE', `%${searchParams}%`)
+        .orWhere('last_name', 'ILIKE', `%${searchParams}%`);
+    });
+  }
+
+  const totalCountResult = await baseQuery
+    .clone()
+    .count<{ total: string }[]>('* as total')
+    .first();
+
+  const totalCount = totalCountResult
+    ? parseInt(totalCountResult.total, 10)
+    : 0;
+
+  const result = await baseQuery
+    .clone()
+    .offset(offset)
+    .limit(limit)
+    .orderBy('created_at', 'desc');
+
+  return { totalCount, result };
+};
+
 export {
+  adminChangedToCustomer,
+  findAdminForSuperAdmin,
+  findCustomerForAdmin,
+  findAllCustomers,
+  findAllUsers,
   saveImageToDatabase,
   findUserById,
   findUserByUsername,
@@ -136,4 +280,5 @@ export {
   updateUserVerification,
   sendSMS,
   findUserByIdFirst,
+  findAllAdmins,
 };

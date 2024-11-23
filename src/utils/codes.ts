@@ -41,6 +41,8 @@ const transactionLimit = () => ({
   standard: 250000,
 });
 
+// Have tier table and each user tier ID and the tier table will have the transaction limit.
+
 export {
   transactionLimit,
   generateCode,

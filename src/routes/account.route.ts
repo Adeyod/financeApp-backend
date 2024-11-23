@@ -6,8 +6,11 @@ import {
   getSingleUserAccountByAccountNumber,
   getReceiverAccountDetails,
   getReceivingFundFlowAccountUserDetails,
+  getAllAccounts,
+  getSingleAccountOfAUserForAdmin,
 } from '../controllers/account.controller';
 import { verifyAccessToken } from '../middlewares/jwtAuth';
+import { permission } from '../middlewares/authorization';
 
 const router = express.Router();
 
@@ -26,5 +29,13 @@ router.get(
 );
 
 router.post('/user-account/create', createNewAccount);
+
+// ADMIN ENABLED ROUTES
+router.get('/all', permission(['admin', 'super_admin']), getAllAccounts);
+router.get(
+  '/admin/account/:user_id/:account_id',
+  permission(['admin', 'super_admin']),
+  getSingleAccountOfAUserForAdmin
+);
 
 export default router;

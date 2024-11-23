@@ -2,22 +2,93 @@ import { Request } from 'express';
 import {
   findUserById,
   findUserByIdFirst,
+  findCustomerForAdmin,
   saveImageToDatabase,
+  findAllUsers,
+  findAllAdmins,
+  findAllCustomers,
+  findAdminForSuperAdmin,
+  adminChangedToCustomer,
 } from '../repository/user.repository';
 import { AppError } from '../utils/app.error';
 import { PayloadWithoutPassword, UserInJwt } from '../constants/types';
 import { cloudinaryDestroy, handleFileUpload } from '../utils/cloudinary';
 
 const getUserDetailsById = async (user_id: string) => {
-  const userDetails = await findUserByIdFirst(user_id);
-  const user = userDetails;
-  if (!user) {
+  const userDetails = await findCustomerForAdmin(user_id);
+  if (!userDetails.user) {
     throw new AppError('User not found', 404);
   }
 
-  const { password, ...others } = user;
+  return userDetails;
+};
 
-  return others;
+const getAdminDetailsById = async (user_id: string) => {
+  const userDetails = await findAdminForSuperAdmin(user_id);
+  if (!userDetails.user) {
+    throw new AppError('User not found', 404);
+  }
+
+  return userDetails;
+};
+
+const getAllUsersDetails = async () => {
+  const users = await findAllUsers();
+
+  if (!users || users.length === 0) {
+    throw new AppError('User not found', 404);
+  }
+
+  const destructuredUsers = users.map(({ password, ...others }) => {
+    return others;
+  });
+
+  return destructuredUsers;
+};
+
+const getAllCustomersDetails = async (
+  page: number = 1,
+  limit: number = 10,
+  searchParams: string
+) => {
+  const offset = (page - 1) * limit;
+
+  const users = await findAllCustomers(limit, offset, searchParams);
+
+  if (!users) {
+    throw new AppError('User not found', 404);
+  }
+
+  const destructuredUsers = users?.result.map(({ password, ...others }) => {
+    return others;
+  });
+
+  return { totalCount: users.totalCount, customers: destructuredUsers };
+};
+
+const getAllAdminsDetails = async (
+  page: number = 1,
+  limit: number = 10,
+  searchParams: string
+) => {
+  const offset = (page - 1) * limit;
+
+  const users = await findAllAdmins(limit, offset, searchParams);
+
+  if (!users) {
+    throw new AppError('User not found', 404);
+  }
+
+  const destructuredUsers = users?.result.map(({ password, ...others }) => {
+    return others;
+  });
+
+  return { totalCount: users.totalCount, admins: destructuredUsers };
+};
+const moveAdminToCustomer = async (admin_id: string) => {
+  const response = await adminChangedToCustomer(admin_id);
+
+  return response;
 };
 
 const userImageUpload = async (
@@ -69,4 +140,12 @@ const userImageUpload = async (
   return saveImage;
 };
 
-export { getUserDetailsById, userImageUpload };
+export {
+  moveAdminToCustomer,
+  getAdminDetailsById,
+  getAllCustomersDetails,
+  getUserDetailsById,
+  userImageUpload,
+  getAllUsersDetails,
+  getAllAdminsDetails,
+};

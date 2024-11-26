@@ -15,10 +15,21 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 
 // Redis connection options
+
+// redis://red-ct2v0jbv2p9s73b3dnsg:6379
+const redisUrl = process.env.REDIS_URL;
+
+if (!redisUrl) {
+  throw new Error('REDIS_URL is not defined');
+}
+
+const redisConnectionString = redisUrl.replace('redis://', '');
+
+const [host, port] = redisConnectionString.split(':');
+
 const redisOptions: RedisOptions = {
-  // host: '127.0.0.1',
-  host: 'localhost',
-  port: 6379,
+  host: host,
+  port: parseInt(port || '6379', 10),
   maxRetriesPerRequest: null,
 };
 

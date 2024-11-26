@@ -1,9 +1,8 @@
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import path from 'path'; // Import the 'path' module
+import path from 'path';
 import ncp from 'ncp';
 
-// Use import.meta.url to get the current file's path
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 

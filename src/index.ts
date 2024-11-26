@@ -3,7 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
-import ngrok from '@ngrok/ngrok';
+// import ngrok from '@ngrok/ngrok';
 
 import { errorHandler } from './middlewares/errorHandler';
 import authRoutes from './routes/auth.route';
@@ -49,9 +49,9 @@ app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
 });
 
-ngrok
-  .connect({ addr: port, authtoken: process.env.NGROK_AUTHTOKEN || '' })
-  .then((listener) => console.log(`Ingress established at: ${listener.url()}`))
-  .catch((error) => {
-    console.error(error);
-  });
+// ngrok
+//   .connect({ addr: port, authtoken: process.env.NGROK_AUTHTOKEN || '' })
+//   .then((listener) => console.log(`Ingress established at: ${listener.url()}`))
+//   .catch((error) => {
+//     console.error(error);
+//   });

@@ -10,7 +10,8 @@ import { EmailJobData } from '../constants/types';
 // import { BullMQAdapter } from '@bull-board/bullmqAdapter';
 // import { createBullBoard } from 'bull-board';
 import { createBullBoard } from '@bull-board/api';
-import { BullMQAdapter } from '@bull-board/api/bullmqAdapter';
+// import { BullMQAdapter } from '@bull-board/api/bullmqAdapter';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 
 // Redis connection options

@@ -7,8 +7,11 @@ import {
   sendPasswordResetMobile,
 } from './nodemailer';
 import { EmailJobData } from '../constants/types';
-import { createBullBoard } from 'bull-board';
-import { BullMQAdapter } from 'bull-board/bullmqAdapter';
+// import { BullMQAdapter } from '@bull-board/bullmqAdapter';
+// import { createBullBoard } from 'bull-board';
+import { createBullBoard } from '@bull-board/api';
+import { BullMQAdapter } from '@bull-board/api/bullmqAdapter';
+import { ExpressAdapter } from '@bull-board/express';
 
 // Redis connection options
 const redisOptions: RedisOptions = {
@@ -90,6 +93,14 @@ worker.on('failed', (job: Job<EmailJobData> | undefined, err: Error) => {
   }
 });
 
-const { router } = createBullBoard([new BullMQAdapter(queue)]);
+const serverAdapter = new ExpressAdapter();
+createBullBoard({
+  queues: [new BullMQAdapter(queue)],
+  serverAdapter,
+});
 
-export { queue, worker, router };
+serverAdapter.setBasePath('/bull-board');
+
+// const { router } = createBullBoard([new BullMQAdapter(queue)]);
+
+export { queue, worker, serverAdapter };

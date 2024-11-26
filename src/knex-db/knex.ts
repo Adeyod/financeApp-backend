@@ -3,14 +3,13 @@ import config from '../knexfile';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const environment = 'development';
-// const environment = process.env.NODE_ENV || 'development';
-
-if (!environment) {
-  console.log('it is undefined');
-  throw new Error('it is undefined');
+if (!process.env.NEON_CONNECTION_STRING) {
+  throw new Error(
+    'NEON_CONNECTION_STRING is not defined in the environment variables'
+  );
 }
-// const environment = process.env.NODE_ENV || 'development';
+
+const environment = 'production' as const;
 
 const knexConfig = config[environment];
 

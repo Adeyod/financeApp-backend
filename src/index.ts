@@ -11,7 +11,7 @@ import userRoutes from './routes/user.route';
 import accountRoutes from './routes/account.route';
 import notificationRoutes from './routes/notification.route';
 import transactionRoutes from './routes/transaction.route';
-import { router } from './utils/queue';
+import { serverAdapter } from './utils/queue';
 import authenticateCustomHeader from './middlewares/customHeader';
 
 dotenv.config();
@@ -37,7 +37,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/admin/queues', router);
+app.use('/admin/queues', serverAdapter.getRouter());
 app.use(errorHandler);
 
 app.get('/', (req, res) => {

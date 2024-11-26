@@ -12,23 +12,25 @@ if (
   );
 }
 
-const config: Knex.Config = {
-  client: 'pg',
-  connection: {
-    connectionString: process.env.NEON_CONNECTION_STRING,
-    ssl: { rejectUnauthorized: false },
-  },
-  pool: {
-    min: 2,
-    max: 10,
-  },
-  migrations: {
-    directory: path.join(__dirname, './knex-db/migrations'),
-    extension: 'ts',
-  },
-  seeds: {
-    directory: path.join(__dirname, './knex-db/seeds'),
-    extension: 'ts',
+const config: { production: Knex.Config } = {
+  production: {
+    client: 'pg',
+    connection: {
+      connectionString: process.env.NEON_CONNECTION_STRING,
+      ssl: { rejectUnauthorized: false },
+    },
+    pool: {
+      min: 2,
+      max: 10,
+    },
+    migrations: {
+      directory: path.join(__dirname, './knex-db/migrations'),
+      extension: 'ts',
+    },
+    seeds: {
+      directory: path.join(__dirname, './knex-db/seeds'),
+      extension: 'ts',
+    },
   },
 };
 

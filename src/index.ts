@@ -66,11 +66,19 @@ app.get('/', (req, res) => {
   });
 });
 
+const header = {
+  'Content-Type': 'application/json',
+  'x-fund-flow': 'web-fund-flow',
+};
+
 cron.schedule('*/30 * * * *', async () => {
   console.log('API is running');
   try {
     const response = await fetch(
-      'https://financeapp-backend-atuh.onrender.com/api'
+      'https://financeapp-backend-atuh.onrender.com/api',
+      {
+        headers: header,
+      }
     );
 
     console.log(response);

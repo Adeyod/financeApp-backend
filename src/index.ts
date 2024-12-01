@@ -1,8 +1,9 @@
 import express from 'express';
-import cors from 'cors';
+import cors, { CorsOptions } from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
+import cron from 'node-cron';
 // import ngrok from '@ngrok/ngrok';
 
 import { errorHandler } from './middlewares/errorHandler';
@@ -19,16 +20,33 @@ const app = express();
 
 const port = process.env.SERVER_PORT || 3000;
 
+const allowedOrigins: string[] = [
+  process.env.FRONTEND_URL || '',
+  process.env.MOBILE_URL || '',
+  'https://financeapp-web.onrender.com',
+];
+
+const corsOptions: CorsOptions = {
+  origin: (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void
+  ) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Access Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+};
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(
-  cors({
-    // origin: '*',
-    origin: [process.env.FRONTEND_URL || '', process.env.MOBILE_URL || ''],
-    credentials: true,
-  })
-);
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 app.use(helmet());
 app.use(authenticateCustomHeader);
@@ -41,7 +59,32 @@ app.use('/admin/queues', serverAdapter.getRouter());
 app.use(errorHandler);
 
 app.get('/', (req, res) => {
-  res.send('Welcome to the entry point of this backend...');
+  res.json({
+    message: 'Welcome to the server side of the FundFlow FinTech application',
+    status: 200,
+    success: true,
+  });
+});
+
+cron.schedule('*/30 * * * *', async () => {
+  console.log('API is running');
+  try {
+    const response = await fetch(
+      'https://financeapp-backend-atuh.onrender.com/api'
+    );
+
+    console.log(response);
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log(`Backend API call successful:`);
+      console.log(data.message);
+    } else {
+      console.error(`Unexpected status code`);
+    }
+  } catch (error) {
+    console.log(error);
+  }
 });
 
 app.listen(port, () => {

@@ -388,6 +388,7 @@ const updateBankData = async (
 const totalTransferredToday = async (user_id: string) => {
   const userTodayTransactions = await knexConnect('transactions')
     .where('user_id', user_id)
+    .where('transaction_type', 'debit')
     .andWhere('created_at', '>=', knexConnect.raw(`CURRENT_DATE`))
     .andWhere(
       'created_at',

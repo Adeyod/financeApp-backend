@@ -116,13 +116,13 @@ const paystackCallBack = async (reference: string) => {
         });
 
         // notification here
-        const payload = {
-          title: 'Credit successful',
-          message: `You have successfully credited ${data.amount} to ${data.account_number}.`,
-          user_id: data.user_id,
-        };
+        // const payload = {
+        //   title: 'Credit successful',
+        //   message: `You have successfully credited ${data.amount} to ${data.account_number}.`,
+        //   user_id: data.user_id,
+        // };
 
-        const newNotification = await createNotificationMessage(payload);
+        // const newNotification = await createNotificationMessage(payload);
 
         return { transactionUpdate, accountUpdate };
       } else {

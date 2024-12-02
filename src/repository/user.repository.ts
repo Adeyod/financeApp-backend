@@ -109,6 +109,27 @@ const adminChangedToCustomer = async (admin_id: string) => {
   return userDetails;
 };
 
+const customerChangedToAdmin = async (customer_id: string) => {
+  const userDetails = await knexConnect<UserDocument>('users')
+    .update('role', 'admin')
+    .where('users.id', customer_id)
+    .andWhere('users.role', 'customer');
+
+  if (!userDetails) {
+    throw new AppError('User not found.', 404);
+  }
+
+  const payload = {
+    title: 'Role Change Notification',
+    message: `Your role has been changed to an admin.`,
+    user_id: customer_id,
+  };
+
+  const newNotification = await createNotificationMessage(payload);
+
+  return userDetails;
+};
+
 const findUserByUsername = async (user_name: string) => {
   const user = await knexConnect<UserDocument>('users')
     .select('*')
@@ -266,6 +287,7 @@ const findAllCustomers = async (
 };
 
 export {
+  customerChangedToAdmin,
   adminChangedToCustomer,
   findAdminForSuperAdmin,
   findCustomerForAdmin,

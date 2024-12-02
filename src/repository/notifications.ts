@@ -126,7 +126,7 @@ const markUserNotificationAsViewed = async (
 ): Promise<NotificationDocument[]> => {
   const notification = await knexConnect<NotificationDocument>('notifications')
     .where('user_id', user_id)
-    .update({ is_viewed: false })
+    .update({ is_viewed: true })
     .returning('*');
 
   if (!notification) {

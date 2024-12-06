@@ -67,7 +67,9 @@ const registerNewUser = async (
     throw new AppError('User with this email already exist', 409);
   }
 
-  const userNameExist = await findUserByUsername(user_name);
+  const userNameExist = await findUserByUsername(
+    user_name.trim().toLowerCase()
+  );
   const existingUserName = userNameExist[0];
 
   if (existingUserName) {
@@ -77,12 +79,12 @@ const registerNewUser = async (
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const newUserResult = await newUserRegistration({
-    first_name,
-    last_name,
-    email,
-    phone_number,
+    first_name: first_name.trim(),
+    last_name: last_name.trim(),
+    email: email.trim(),
+    phone_number: phone_number.trim(),
     password: hashedPassword,
-    user_name,
+    user_name: user_name.trim().toLowerCase(),
   });
 
   const newUser = newUserResult[0];
@@ -251,9 +253,9 @@ const logUserIn = async (
   let getUserResult: UserDocument[];
 
   if (login_input.includes('@')) {
-    getUserResult = await findUserByEmail(login_input);
+    getUserResult = await findUserByEmail(login_input.trim());
   } else {
-    getUserResult = await findUserByUsername(login_input);
+    getUserResult = await findUserByUsername(login_input.trim().toLowerCase());
   }
 
   const user = getUserResult[0];

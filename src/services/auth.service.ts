@@ -113,8 +113,9 @@ const registerNewUser = async (
 
   const { token: tokenDetails, expires_at } = newVerificationCode;
 
-  const encodedExpiresAt = expires_at;
-  // const encodedExpiresAt = encodeURIComponent(expires_at.toISOString());
+  // const encodedExpiresAt = expires_at;
+  const expiresAtDate = new Date(expires_at);
+  const encodedExpiresAt = encodeURIComponent(expiresAtDate.toISOString());
 
   if (device === 'mobile-fund-flow') {
     const jobData = {
@@ -203,8 +204,14 @@ const verifyEmail = async (userObj: UserObjProp): Promise<UserDocument> => {
     expires_at,
   } = verificationDetails;
 
+  // const currentTime = Date.now();
+  // const expiresAt = convertExpireDateToNumber(expires_at);
+
+  const expiresAt = new Date(expires_at).getTime();
   const currentTime = Date.now();
-  const expiresAt = convertExpireDateToNumber(expires_at);
+
+  console.log('Current Time (UTC):', new Date(currentTime).toISOString());
+  console.log('Expires At (UTC):', new Date(expiresAt).toISOString());
 
   if (currentTime > expiresAt) {
     await deleteToken({
@@ -293,7 +300,10 @@ const logUserIn = async (
 
       const { token: tokenDetails, expires_at } = newVerificationCode;
 
-      const encodedExpiresAt = encodeExpiresAt(expires_at);
+      // const encodedExpiresAt = encodeExpiresAt(expires_at);
+
+      const expiresAtDate = new Date(expires_at);
+      const encodedExpiresAt = encodeURIComponent(expiresAtDate.toISOString());
 
       // link = `${FRONTEND_URL}/auth/email-verification/${user.id}/${tokenDetails}`;
       link = `${FRONTEND_URL}/email-verification?userId=${user.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
@@ -346,7 +356,12 @@ const logUserIn = async (
 
         const { token: tokenDetails, expires_at } = newVerificationCode;
 
-        const encodedExpiresAt = encodeExpiresAt(expires_at);
+        // const encodedExpiresAt = encodeExpiresAt(expires_at);
+
+        const expiresAtDate = new Date(expires_at);
+        const encodedExpiresAt = encodeURIComponent(
+          expiresAtDate.toISOString()
+        );
 
         // link = `${FRONTEND_URL}/auth/email-verification/${user.id}/${tokenDetails}`;
         link = `${FRONTEND_URL}/email-verification?userId=${user.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
@@ -369,7 +384,12 @@ const logUserIn = async (
           403
         );
       } else {
-        const encodedExpiresAt = encodeExpiresAt(expires_at);
+        // const encodedExpiresAt = encodeExpiresAt(expires_at);
+
+        const expiresAtDate = new Date(expires_at);
+        const encodedExpiresAt = encodeURIComponent(
+          expiresAtDate.toISOString()
+        );
 
         // link = `${FRONTEND_URL}/auth/email-verification/${user_id}/${activeToken.token}`;
         link = `${FRONTEND_URL}/email-verification?userId=${user_id}&token=${activeToken.token}&expires_at=${encodedExpiresAt}`;

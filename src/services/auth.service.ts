@@ -135,7 +135,7 @@ const registerNewUser = async (
     });
   } else {
     // const link = `${FRONTEND_URL}/auth/email-verification/${others.id}/${tokenDetails}`;
-    const link = `${FRONTEND_URL}/email-verification?userId=${others.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
+    const link = `${FRONTEND_URL}/email-verification?userId=${others.id}&token=${tokenDetails}`;
 
     const jobData = {
       email: others.email,
@@ -206,26 +206,23 @@ const verifyEmail = async (userObj: UserObjProp): Promise<UserDocument> => {
     expires_at,
   } = verificationDetails;
 
-  // const currentTime = Date.now();
-  // const expiresAt = convertExpireDateToNumber(expires_at);
-
   const expiresAt = new Date(expires_at).getTime();
   const currentTime = Date.now();
 
   console.log('Current Time (UTC):', new Date(currentTime).toISOString());
   console.log('Expires At (UTC):', new Date(expiresAt).toISOString());
 
-  if (currentTime > expiresAt) {
-    await deleteToken({
-      user_id,
-      purpose: VerificationCodeType.EmailVerification,
-      id,
-    });
-    throw new AppError(
-      'Verification link has expired. Please request a new one',
-      401
-    );
-  }
+  // if (currentTime > expiresAt) {
+  //   await deleteToken({
+  //     user_id,
+  //     purpose: VerificationCodeType.EmailVerification,
+  //     id,
+  //   });
+  //   throw new AppError(
+  //     'Verification link has expired. Please request a new one',
+  //     401
+  //   );
+  // }
 
   const updateResult = await updateUserVerification(user_id);
   const updateUser = updateResult[0];
@@ -308,7 +305,7 @@ const logUserIn = async (
       const encodedExpiresAt = encodeURIComponent(expiresAtDate.toISOString());
 
       // link = `${FRONTEND_URL}/auth/email-verification/${user.id}/${tokenDetails}`;
-      link = `${FRONTEND_URL}/email-verification?userId=${user.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
+      link = `${FRONTEND_URL}/email-verification?userId=${user.id}&token=${tokenDetails}`;
 
       const jobData = {
         email: user.email,
@@ -366,7 +363,7 @@ const logUserIn = async (
         );
 
         // link = `${FRONTEND_URL}/auth/email-verification/${user.id}/${tokenDetails}`;
-        link = `${FRONTEND_URL}/email-verification?userId=${user.id}&token=${tokenDetails}&expires_at=${encodedExpiresAt}`;
+        link = `${FRONTEND_URL}/email-verification?userId=${user.id}&token=${tokenDetails}`;
 
         const jobData = {
           email: user.email,
@@ -394,7 +391,7 @@ const logUserIn = async (
         );
 
         // link = `${FRONTEND_URL}/auth/email-verification/${user_id}/${activeToken.token}`;
-        link = `${FRONTEND_URL}/email-verification?userId=${user_id}&token=${activeToken.token}&expires_at=${encodedExpiresAt}`;
+        link = `${FRONTEND_URL}/email-verification?userId=${user_id}&token=${activeToken.token}`;
 
         const jobData = {
           email: user.email,

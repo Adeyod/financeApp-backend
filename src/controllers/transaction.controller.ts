@@ -275,6 +275,13 @@ const transferToFundFlowAccount = catchErrors(async (req, res) => {
     throw new AppError('Not authorized', 400);
   }
 
+  if (receiving_account_number === selected_account_number) {
+    throw new AppError(
+      'You can not send money from same account to same account',
+      401
+    );
+  }
+
   const response = await fundFlowTransfer({
     user_id: user.userId,
     receiving_account_number: receiving_account_number,

@@ -49,8 +49,9 @@ const verifyAccessToken = async (
     let token;
 
     if (req.headers['x-fund-flow'] === 'web-fund-flow') {
-      token = await req.cookies.token;
-      console.log(token);
+      // token = await req.cookies.token;
+      token = req.headers['authorization']?.split(' ')[1];
+      console.log('authToken:', token);
     } else if (req.headers['x-fund-flow'] === 'mobile-fund-flow') {
       token = req.headers['authorization']?.split(' ')[1];
     }

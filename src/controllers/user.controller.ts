@@ -15,6 +15,8 @@ import catchErrors from '../utils/tryCatch';
 const getUserProfileById = catchErrors(async (req, res) => {
   const user = req.user;
 
+  console.log('user:', user);
+
   if (!user) {
     throw new AppError('Unable to authenticate user', 401);
   }

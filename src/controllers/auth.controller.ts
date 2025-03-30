@@ -1,0 +1,306 @@
+import {
+  ComparePassType,
+  PayloadForLoginInput,
+  User,
+  UserObjProp,
+} from '../constants/types';
+import { joiValidation } from '../utils/validation';
+import {
+  registerNewUser,
+  verifyEmail,
+  logUserIn,
+  sendEmailVerificationAgain,
+  forgotPass,
+  passwordReset,
+  sendPhoneVerificationPin,
+  passwordChange,
+} from '../services/auth.service';
+
+import catchErrors from '../utils/tryCatch';
+
+const registerUser = catchErrors(async (req, res) => {
+  const {
+    first_name,
+    user_name,
+    last_name,
+    email,
+    phone_number,
+    password,
+    confirm_password,
+  }: User = req.body;
+
+  const device = Array.isArray(req.headers['x-fund-flow'])
+    ? req.headers['x-fund-flow'][0]
+    : req.headers['x-fund-flow'];
+
+  const payload = {
+    first_name,
+    user_name,
+    last_name,
+    email,
+    phone_number,
+    password,
+    confirm_password,
+  };
+
+  const validateInputs = joiValidation(payload, 'register');
+
+  const { success, value } = validateInputs;
+
+  const valueInput = { ...value, device: device };
+
+  const user = await registerNewUser(valueInput);
+
+  return res.status(201).json({
+    message:
+      'User created successfully. Please visit your email to verify your email address.',
+    success: true,
+    status: 201,
+  });
+});
+
+const verifyUserEmail = catchErrors(async (req, res) => {
+  const device = Array.isArray(req.headers['x-fund-flow'])
+    ? req.headers['x-fund-flow'][0]
+    : req.headers['x-fund-flow'] || '';
+
+  console.log(device);
+
+  let userObj: UserObjProp = {
+    token: '',
+    userId: '',
+    device: device,
+  };
+
+  if (device === 'mobile-fund-flow') {
+    const token = (req.query.token as string) || '';
+    console.log('controller:', token);
+    userObj = { ...userObj, token };
+  } else {
+    const userId = (req.query.userId as string) || '';
+    const token = (req.query.token as string) || '';
+    userObj = { ...userObj, userId, token };
+  }
+
+  const isVerified = await verifyEmail(userObj);
+
+  console.log('isVerified', isVerified);
+
+  return res.status(200).json({
+    message: `${isVerified.first_name}, your email has been verified successfully. Please login to continue.`,
+    success: true,
+    status: 200,
+  });
+});
+
+const loginUser = catchErrors(async (req, res) => {
+  const { login_input, password }: PayloadForLoginInput = req.body;
+
+  console.log(req.body);
+
+  const payload = {
+    login_input,
+    password,
+  };
+
+  const validateInputs = joiValidation(payload, 'login');
+
+  const { success, value } = validateInputs;
+
+  const { access, token, ...others } = await logUserIn(value);
+
+  return res.status(200).json({
+    message: `${others.first_name}, your login was successful`,
+    user: others,
+    access,
+    token,
+    success: true,
+    status: 200,
+  });
+
+  // if (req.headers['x-fund-flow'] === 'mobile-fund-flow') {
+  //   return res.status(200).json({
+  //     message: `${others.first_name}, your login was successful`,
+  //     user: others,
+  //     access,
+  //     token,
+  //     success: true,
+  //     status: 200,
+  //   });
+  // } else {
+  //   return res
+  //     .cookie('token', token, {
+  //       httpOnly: true,
+  //       sameSite: 'none', // Needed during production or deployment for HTTPS
+  //       secure: true, // Needed during production or deployment for HTTPS
+  //       maxAge: 15 * 24 * 60 * 60 * 1000,
+  //     })
+  //     .status(200)
+  //     .json({
+  //       message: `${others.first_name}, your login was successful`,
+  //       user: others,
+  //       access,
+  //       success: true,
+  //       status: 200,
+  //     });
+  // }
+});
+
+const resendEmailVerificationLink = catchErrors(async (req, res) => {
+  const { email } = req.body;
+
+  const validateInputs = joiValidation(email, 'forgot-password');
+
+  const { success, value } = validateInputs;
+
+  const newEmail = await sendEmailVerificationAgain(value);
+
+  return res.status(200).json({
+    message: 'Please check your email to verify your account',
+    success: true,
+    status: 200,
+  });
+});
+
+const forgotPassword = catchErrors(async (req, res) => {
+  const { email } = req.body;
+
+  const device = Array.isArray(req.headers['x-fund-flow'])
+    ? req.headers['x-fund-flow'][0]
+    : req.headers['x-fund-flow'] || '';
+
+  console.log(device);
+
+  const validateInputs = joiValidation(email, 'forgot-password');
+
+  const { success, value } = validateInputs;
+
+  const valueProp = { email: value, device };
+
+  console.log('CONTROLLER:', value);
+  console.log('CONTROLLER:', valueProp);
+
+  const forgotPasswordResult = await forgotPass(valueProp);
+
+  return res.status(200).json({
+    success: true,
+    message: 'Please check your email for the password reset link',
+    status: 200,
+  });
+});
+
+const resetPassword = catchErrors(async (req, res) => {
+  // const { userId, token } = req.params;
+  const { password, confirm_password }: ComparePassType = req.body;
+
+  console.log(password);
+  console.log(confirm_password);
+
+  const device = Array.isArray(req.headers['x-fund-flow'])
+    ? req.headers['x-fund-flow'][0]
+    : req.headers['x-fund-flow'] || '';
+
+  console.log(device);
+
+  let userObj: UserObjProp = {
+    token: '',
+    userId: '',
+    device: device,
+  };
+
+  if (device === 'mobile-fund-flow') {
+    const token = (req.query.token as string) || '';
+    console.log('controller:', token);
+    userObj = { ...userObj, token };
+  } else {
+    const userId = (req.query.userId as string) || '';
+    const token = (req.query.token as string) || '';
+    userObj = { ...userObj, userId, token };
+  }
+
+  const inputContent = {
+    password,
+    confirm_password,
+  };
+
+  const validateInputs = joiValidation(inputContent, 'reset-password');
+
+  const { success, value } = validateInputs;
+
+  const payload = {
+    user_id: userObj.userId,
+    token: userObj.token,
+    device: userObj.device,
+    password: value.password,
+  };
+
+  const resetPasswordResponse = await passwordReset(payload);
+
+  return res.status(200).json({
+    message: resetPasswordResponse,
+    success: true,
+    status: 200,
+  });
+});
+
+const changePassword = catchErrors(async (req, res) => {
+  const user = req.user;
+
+  const { current_password, new_password, confirm_new_password } =
+    await req.body;
+
+  const inputContent = {
+    password: new_password,
+    confirm_password: confirm_new_password,
+  };
+
+  const validateInputs = joiValidation(inputContent, 'reset-password');
+
+  const { success, value } = validateInputs;
+
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  const changePasswordServiceResult = await passwordChange({
+    reqId: user.userId,
+    currentPassword: current_password,
+    newPassword: value.password,
+  });
+
+  return res.status(200).json({
+    message: `${changePasswordServiceResult}, your password has been changed successfully. You will need to use it to login henceforth.`,
+    success: true,
+    status: 200,
+  });
+});
+
+const sendPhoneVerificationCode = catchErrors(async (req, res) => {
+  const { user_id } = req.params;
+  const user = req.user;
+
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  const serviceResult = await sendPhoneVerificationPin(user_id, user.userId);
+});
+
+const logoutUser = catchErrors(async (req, res) => {
+  res.clearCookie('access_token', { httpOnly: true });
+  res.status(200).json({
+    message: 'User logged out successfully',
+  });
+});
+
+export {
+  logoutUser,
+  registerUser,
+  verifyUserEmail,
+  loginUser,
+  resendEmailVerificationLink,
+  changePassword,
+  sendPhoneVerificationCode,
+  resetPassword,
+  forgotPassword,
+};

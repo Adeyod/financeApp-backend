@@ -1,164 +1,174 @@
+import { PayloadWithoutPassword } from '../constants/types';
+import { createNotificationMessage } from '../repository/notifications';
 import {
-  comparePassType,
-  PayloadForLoginInput,
-  User,
-} from '../constants/types';
-import {
-  validateEmail,
-  validateField,
-  validatePassword,
-} from '../middlewares/validation';
-import {
-  registerUserService,
-  verifyEmailService,
-  loginUserService,
-  resendEmailVerificationLinkService,
-  forgotPasswordService,
-  resetPasswordService,
+  getUserDetailsById,
+  userImageUpload,
+  getAllUsersDetails,
+  getAllCustomersDetails,
+  getAllAdminsDetails,
+  getAdminDetailsById,
+  moveAdminToCustomer,
 } from '../services/user.service';
-
+import { AppError } from '../utils/app.error';
 import catchErrors from '../utils/tryCatch';
 
-export const registerUser = catchErrors(async (req, res) => {
-  const {
-    first_name,
-    last_name,
-    email,
-    phone_number,
-    password,
-    confirm_password,
-  }: User = req.body;
+const getUserProfileById = catchErrors(async (req, res) => {
+  const user = req.user;
 
-  const firstName = validateField(first_name, 'first name');
-  const lastName = validateField(last_name, 'last name');
-  const emailValue = validateEmail(email);
-  const passwordValue = validatePassword(
-    password,
-    confirm_password,
-    'registration'
-  );
+  console.log('user:', user);
 
-  // call a service
-  const payload = {
-    first_name: firstName,
-    last_name: lastName,
-    email: emailValue,
-    phone_number,
-    password: passwordValue,
-  };
-  const user = await registerUserService(payload);
+  if (!user) {
+    throw new AppError('Unable to authenticate user', 401);
+  }
 
-  // return response
-  return res.status(201).json({
-    message:
-      'User created successfully. Please visit your email to verify your email address.',
-    success: true,
-    status: 201,
-  });
-});
+  const profileDetails = await getUserDetailsById(user.userId);
 
-export const verifyUserEmail = catchErrors(async (req, res) => {
-  // get the params
-  const { userId, token } = req.params;
-
-  // const user_id = parseInt(userId);
-
-  // call a service
-  const isVerified = await verifyEmailService(userId, token);
-
-  // return the response
   return res.status(200).json({
-    message: `${isVerified.first_name}, your email has been verified successfully. Please login to continue.`,
-    success: true,
+    message: 'Profile fetched successfully',
     status: 200,
+    success: true,
+    user: profileDetails,
   });
 });
 
-export const loginUser = catchErrors(async (req, res) => {
-  // get the details from the req.body and validate it
-  const { email, password }: PayloadForLoginInput = req.body;
-  const emailValue = validateEmail(email);
-  const passwordValue = validatePassword(password, undefined, 'login');
+const uploadUserImage = catchErrors(async (req, res) => {
+  const user = req.user;
 
-  const payload = {
-    email: emailValue,
-    password: passwordValue,
-  };
+  console.log(user);
+  console.log(req.file);
 
-  //  call a service
-  const { access_token, ...others } = await loginUserService(payload);
+  if (!user) {
+    throw new AppError('Unable to authenticate user', 401);
+  }
 
-  // return the response
-  return res
-    .cookie('access_token', access_token, {
-      httpOnly: true,
-      maxAge: 15 * 24 * 60 * 60 * 1000,
-    })
-    .status(200)
-    .json({
-      user: others,
-      message: `${others.first_name}, your login was successful`,
+  console.log('I want to upload image. Presently in the controller');
+
+  const uploadImg = await userImageUpload(req, user, res);
+  const { ...others } = uploadImg;
+  console.log('USER: ', others);
+
+  if (uploadImg) {
+    const payload = {
+      title: 'Image upload successful',
+      message: `You have successfully uploaded an image to your profile.`,
+      user_id: user.userId,
+    };
+
+    const newNotification = await createNotificationMessage(payload);
+  }
+
+  return res.status(200).json({
+    message: 'Profile Image uploaded successfully',
+    status: 200,
+    success: true,
+    user: others,
+  });
+});
+
+const getSingleCustomerById = catchErrors(async (req, res) => {
+  const { customer_id } = req.params;
+
+  const response = await getUserDetailsById(customer_id);
+
+  console.log('response', response);
+  if (response) {
+    return res.status(200).json({
+      message: 'User fetched successfully',
       success: true,
-      status: 200,
+      user: response,
     });
+  }
 });
 
-export const resendEmailVerificationLink = catchErrors(async (req, res) => {
-  const { email } = req.body;
-  const checkEmail = validateEmail(email);
+const getSingleAdminById = catchErrors(async (req, res) => {
+  const { admin_id } = req.params;
 
-  // call a service
-  const newEmail = await resendEmailVerificationLinkService(email);
+  const response = await getAdminDetailsById(admin_id);
 
-  // return response
+  console.log('response', response);
+  if (response) {
+    return res.status(200).json({
+      message: 'User fetched successfully',
+      success: true,
+      user: response,
+    });
+  }
+});
+
+const getAllUsers = catchErrors(async (req, res) => {
+  const userId = req?.user?.userId;
+  const response = await getAllUsersDetails();
+
+  const removeCurrentUser = response.filter((user) => user.id !== userId);
+
   return res.status(200).json({
-    message: 'Please check your email to verify your account',
+    message: 'User fetched successfully',
     success: true,
-    status: 200,
+    user: removeCurrentUser,
   });
 });
 
-export const forgotPassword = catchErrors(async (req, res) => {
-  // get email and validate it
-  const { email } = req.body;
+const getAllAdmins = catchErrors(async (req, res) => {
+  console.log('i an running here');
+  const { page, limit, searchParams } = req.query;
 
-  const emailValue = validateEmail(email);
+  const searchQuery = typeof searchParams === 'string' ? searchParams : '';
 
-  // call a service
-  const forgotPasswordResult = await forgotPasswordService(emailValue);
-
-  // return response
-  return res.status(200).json({
-    success: true,
-    message: 'Please check your email for the password reset link',
-    status: 200,
-  });
-});
-
-export const resetPassword = catchErrors(async (req, res) => {
-  // get user id, and token from params
-  const { userId, token } = req.params;
-  // get new password and confirm password from body
-  const { password, confirm_password }: comparePassType = req.body;
-  const validatedResult = await validatePassword(
-    password,
-    confirm_password,
-    'registration'
+  const response = await getAllAdminsDetails(
+    Number(page),
+    Number(limit),
+    searchQuery
   );
 
-  const payload = {
-    user_id: userId,
-    token: token,
-    password: validatedResult,
-  };
-
-  // call a service
-  const resetPasswordResponse = await resetPasswordService(payload);
-
-  // return response
   return res.status(200).json({
-    message: resetPasswordResponse,
+    message: 'Admins fetched successfully',
     success: true,
-    status: 200,
+    customers: response,
   });
 });
+
+const changeAdminToCustomer = catchErrors(async (req, res) => {
+  console.log('i an running here');
+  const { admin_id } = req.params;
+
+  const response = await moveAdminToCustomer(admin_id);
+
+  console.log(response);
+
+  return res.status(200).json({
+    message: 'Admin removed successfully',
+    success: true,
+    customer: response,
+  });
+});
+
+const getAllCustomers = catchErrors(async (req, res) => {
+  const { page, limit, searchParams } = req.query;
+
+  const searchQuery = typeof searchParams === 'string' ? searchParams : '';
+
+  const response = await getAllCustomersDetails(
+    Number(page),
+    Number(limit),
+    searchQuery
+  );
+
+  return res.status(200).json({
+    message: 'Customers fetched successfully',
+    success: true,
+    customers: response,
+  });
+});
+
+export {
+  changeAdminToCustomer,
+  getSingleAdminById,
+  getAllCustomers,
+  getAllAdmins,
+  getUserProfileById,
+  uploadUserImage,
+  getAllUsers,
+  getSingleCustomerById,
+};
+
+// upload user image added

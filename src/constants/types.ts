@@ -1,28 +1,102 @@
-// export type
-export type comparePassType = {
+import { NextFunction, Request, Response } from 'express';
+
+type UserInJwt = {
+  userId: string;
+  userEmail: string;
+  iat: number;
+  exp: number;
+};
+
+type GenerateCodeType = {
+  first_name: string;
+  last_name: string;
+  num: number;
+};
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: UserInJwt;
+    }
+  }
+}
+
+type ComparePassType = {
   password: string;
   confirm_password: string;
 };
 
-export type Payload = {
+type TokenSearchType = {
+  user_id?: string;
+  purpose: string;
+  token?: string;
+};
+
+type DeleteTokenType = {
+  user_id: string;
+  purpose: string;
+  id?: string;
+};
+
+type AccountCreationType = {
+  user_id: string;
+  accountNumber: string;
+};
+
+type AccountCreatedDetailsType = {
+  id: string;
+  user_id: string;
+  account_number: string;
+  balance: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type UserWithAccountType = {
+  userData: UserDocument;
+  account: AccountCreatedDetailsType;
+  device?: string;
+};
+
+type Payload = {
+  user_name: string;
   first_name: string;
   last_name: string;
   email: string;
   phone_number: string;
   password: string;
+  device?: string;
 };
-export type PayloadForLoginInput = Pick<Payload, 'email' | 'password'>;
 
-export type UserDocument = Payload & {
+type Receiver = {
+  account_number: string;
+  account_name: string;
+  bank_code: string;
+};
+
+type PayloadForLoginInput = {
+  login_input: string;
+  password: string;
+};
+
+type UserDocument = Payload & {
   id: string;
+  role: 'customer' | 'admin' | 'super_admin';
   created_at: string;
   is_verified: boolean;
   updated_at: string;
   two_fa_enabled: boolean;
+  account_tier: string;
   biometric_enabled: boolean;
+  is_phone_verified: boolean;
+  profile_image?: {
+    url: string;
+    public_id: string;
+  };
 };
 
-export type VerificationQuery = {
+type VerificationQuery = {
   id: string;
   user_id: string;
   token: string;
@@ -31,9 +105,36 @@ export type VerificationQuery = {
   expires_at: string;
 };
 
-export type PayloadWithoutPassword = Omit<UserDocument, 'password'>;
+type TransactionType = {
+  amount: string;
+  account_number: string;
+  email: string;
+  user_id: string;
+};
 
-export type EmailVerificationDocument = {
+type DataType = {
+  amount: number;
+  reference: string;
+  account_number: string;
+  user_id: string;
+  sender_bank?: string;
+  sender_account_name?: string;
+  sender_account_number?: string;
+};
+
+type VerificationParams = Pick<
+  VerificationQuery,
+  'user_id' | 'token' | 'purpose' | 'expires_at'
+>;
+
+type PayloadWithoutPassword = Omit<UserDocument, 'password'>;
+
+type LoginParams = PayloadWithoutPassword & {
+  access: string;
+  token: string;
+};
+
+type EmailVerificationDocument = {
   id: string;
   user_id: string;
   token: string;
@@ -42,15 +143,301 @@ export type EmailVerificationDocument = {
   expires_at: Date;
 };
 
-export type User = comparePassType & {
+type User = ComparePassType & {
+  user_name: string;
   first_name: string;
   last_name: string;
   email: string;
   phone_number: string;
 };
 
-export type ResetPasswordDocument = {
-  user_id: string;
+type ResetPasswordDocument = {
+  user_id?: string;
+  device: string;
   token: string;
   password: string;
+};
+
+type AsyncHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => Promise<any>;
+
+type SmsType = {
+  code: number;
+  phone_number: string;
+};
+
+type ChangePasswordType = {
+  reqId: string;
+  currentPassword: string;
+  newPassword: string;
+};
+
+type EmailType = {
+  email: string;
+  first_name: string;
+  link?: string;
+  token?: number;
+};
+
+type EmailJobData = {
+  email: string;
+  first_name: string;
+  link: string;
+  type: 'email-verification' | 'forgot-password';
+  device?: string;
+};
+
+type AccountCredit = {
+  user_id: string;
+  account_number: string;
+  amount: number;
+};
+
+type BankCreditType = {
+  paying_account_number: string;
+  receiving_account_number: string;
+  bank_name: string;
+  amount: number;
+  user_id: string;
+  narration: string;
+};
+
+type TransactionDetails = {
+  id: string;
+  user_id: string;
+  amount: number;
+  transaction_type: string;
+  transaction_date: Date;
+  transaction_status: string;
+  description: string;
+  account_number: string;
+  account_id: string;
+  reference_number: string;
+  created_at: string;
+  updated_at: string;
+  transaction_source: string;
+  receiving_account?: string;
+  receiving_account_number: string;
+  receiver_account_name: string;
+  sender_bank_name: string;
+  sender_account_name: string;
+  sender_account_number: string;
+};
+
+type InitializationType = {
+  status: boolean;
+  message: string;
+  reference: string;
+  user_id: string;
+  amount: number;
+  transaction_type: string;
+  transaction_status: string;
+  description: string;
+  account_number: string;
+};
+
+type MonnifyPendingStatus = {
+  user_id: string;
+  amount: string;
+  receiver_account_name: string;
+  transaction_type: string;
+  transaction_date: Date;
+  transaction_status: string;
+  description: string;
+  account_id: string;
+  reference_number: string;
+  receiving_account: string;
+  account_number: string;
+};
+
+type MonnifyDataUpdate = {
+  account_number: string;
+  monnifyResponse: {
+    reference: string;
+    amount: string;
+    receiving_bank_name: string;
+  };
+};
+
+type TransactionResponse = {
+  transaction: TransactionDetails;
+  user: PayloadWithoutPassword;
+};
+
+type ReceiverInfo = {
+  account_number: string;
+  account_name: string;
+  bank_id: number;
+};
+
+type BankDataReturnType = {
+  id: string;
+  bank_id: number;
+  name: string;
+  slug: string;
+  code: string;
+  longcode: string;
+  pay_with_bank: boolean;
+  supports_transfer: boolean;
+  active: boolean;
+  country: string;
+  currency: string;
+  type: string;
+  is_deleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type BankDataType = {
+  id: number;
+  name: string;
+  slug: string;
+  code: string;
+  longcode: string;
+  pay_with_bank: boolean;
+  supports_transfer: boolean;
+  active: boolean;
+  country: string;
+  currency: string;
+  type: string;
+  is_deleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type PaystackTransferInitialized = {
+  active: boolean;
+  createdAt: string;
+  currency: string;
+  description: string;
+  domain: string;
+  email: string;
+  id: number;
+  integration: number;
+  metadata: {
+    sender_id: string;
+    amount: number;
+    sender_account: string;
+  };
+  name: string;
+  recipient_code: string;
+  type: string;
+  updatedAt: string;
+  is_deleted: boolean;
+  isDeleted: boolean;
+  details: {
+    authorization_code: string;
+    account_number: string;
+    account_name: string;
+    bank_code: string;
+    bank_name: string;
+  };
+};
+
+type FundFlowTransferData = {
+  user_id: string;
+  receiving_account_number: string;
+  selected_account_number: string;
+  amount: string;
+  description: string;
+  receiver_account_name: string;
+};
+
+type UpdateTransferAccountType = {
+  sender: AccountCreatedDetailsType;
+  receiver: AccountCreatedDetailsType;
+  amount: string;
+  description: string;
+  receiver_account_name: string;
+};
+
+type MonnifyTransferInitialization = {
+  accessToken: string;
+  user_id: string;
+  amount: string;
+  narration: string;
+  receiverDetails: {
+    account_number: string;
+    bank_code: string;
+  };
+  destinationBankCode: string;
+  destinationAccountNumber: string;
+  reference: string;
+};
+
+type UserObjProp = {
+  userId?: string;
+  token: string;
+  device: string;
+};
+
+type forgotPassProp = {
+  email: string;
+  device: string;
+};
+
+type NotificationProp = {
+  receiver?: string;
+  title: string;
+  user_id?: string;
+  message: string;
+};
+
+type NotificationDocument = NotificationProp & {
+  id: string;
+  is_read: boolean;
+  created_at: string;
+  updated_at: string;
+  receiver: string;
+  is_viewed: boolean;
+};
+
+export {
+  NotificationDocument,
+  NotificationProp,
+  forgotPassProp,
+  UserObjProp,
+  Receiver,
+  MonnifyDataUpdate,
+  MonnifyTransferInitialization,
+  UpdateTransferAccountType,
+  FundFlowTransferData,
+  PaystackTransferInitialized,
+  ReceiverInfo,
+  BankDataReturnType,
+  BankDataType,
+  BankCreditType,
+  TransactionResponse,
+  InitializationType,
+  AccountCredit,
+  TransactionDetails,
+  EmailJobData,
+  EmailType,
+  ChangePasswordType,
+  SmsType,
+  UserInJwt,
+  TokenSearchType,
+  DeleteTokenType,
+  UserWithAccountType,
+  PayloadForLoginInput,
+  AccountCreationType,
+  AccountCreatedDetailsType,
+  Payload,
+  VerificationParams,
+  VerificationQuery,
+  UserDocument,
+  PayloadWithoutPassword,
+  LoginParams,
+  EmailVerificationDocument,
+  AsyncHandler,
+  ResetPasswordDocument,
+  ComparePassType,
+  User,
+  GenerateCodeType,
+  TransactionType,
+  DataType,
+  MonnifyPendingStatus,
 };

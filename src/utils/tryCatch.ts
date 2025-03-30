@@ -1,12 +1,6 @@
-import { NextFunction, Request, Response } from 'express';
+import { AsyncHandler } from '../constants/types';
 
-type AsyncHandler = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => Promise<any>;
-
-const catchError =
+const catchErrors =
   (controller: AsyncHandler): AsyncHandler =>
   async (req, res, next) => {
     try {
@@ -15,5 +9,6 @@ const catchError =
       next(error);
     }
   };
+  
 
-export default catchError;
+export default catchErrors;
